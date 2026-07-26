@@ -4,6 +4,8 @@ A static, phone-first scoresheet for Up the River, Down the River.
 
 Open `index.html` locally or publish the folder with GitHub Pages.
 
+The home screen groups games by Drinking Game, Card Game, and Party Game. Up the River, Down the River is available under Card Game.
+
 ## Current scoring
 
 - Board: exact all-tricks bid scores `5 x tricks`; missing it loses `3 x bid`.

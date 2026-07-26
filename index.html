@@ -18,9 +18,9 @@
     <main class="app">
       <section class="hero" aria-labelledby="page-title">
         <div class="hero-copy">
-          <p class="eyebrow">Card game scoresheets</p>
-          <h1 id="page-title">Up the River, Down the River</h1>
-          <p class="intro">A phone-friendly scorekeeper for bids, tricks, boards, teams, and the climb up and back down.</p>
+          <p class="eyebrow">Game night scoresheets</p>
+          <h1 id="page-title">River Scoresheets</h1>
+          <p class="intro">Pick a game, set the house rules, and keep the table moving from your phone.</p>
           <div class="river-scene" aria-hidden="true">
             <div class="river-current">
               <span class="floating-card card-a">A</span>
@@ -34,7 +34,44 @@
         </div>
         <div class="hero-actions">
           <button class="ghost-button" type="button" id="wake-lock">Wake</button>
-          <button class="ghost-button" type="button" id="new-game-top">New</button>
+          <button class="ghost-button" type="button" id="new-game-top">Home</button>
+        </div>
+      </section>
+
+      <section class="panel home-panel" id="home-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Choose type</p>
+            <h2>What are we playing?</h2>
+          </div>
+        </div>
+
+        <div class="category-grid" id="category-grid">
+          <button class="category-card" type="button" data-category="drinking">
+            <span class="category-icon">21+</span>
+            <strong>Drinking Game</strong>
+            <small>Penalty and party-rule games</small>
+          </button>
+          <button class="category-card" type="button" data-category="card">
+            <span class="category-icon">AK</span>
+            <strong>Card Game</strong>
+            <small>Cards, bids, tricks, and scores</small>
+          </button>
+          <button class="category-card" type="button" data-category="party">
+            <span class="category-icon">!!</span>
+            <strong>Party Game</strong>
+            <small>Group prompts and table games</small>
+          </button>
+        </div>
+
+        <div class="game-picker hidden" id="game-picker">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">Choose game</p>
+              <h2 id="game-picker-title">Card Games</h2>
+            </div>
+          </div>
+          <div class="game-grid" id="game-grid"></div>
         </div>
       </section>
 

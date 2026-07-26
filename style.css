@@ -253,6 +253,10 @@ h3 {
   border-top: 5px solid var(--bank);
 }
 
+.home-panel {
+  border-top: 5px solid var(--river-deep);
+}
+
 .entry-panel {
   border-top: 5px solid var(--river);
 }
@@ -328,6 +332,90 @@ h3 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.category-grid,
+.game-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.category-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.game-picker {
+  margin-top: 16px;
+}
+
+.category-card,
+.game-card {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--ink);
+  text-align: left;
+  background: #fffdf8;
+  box-shadow: 0 8px 22px rgba(50, 38, 24, 0.07);
+  cursor: pointer;
+}
+
+.category-card.active {
+  border-color: rgba(31, 157, 182, 0.6);
+  background:
+    linear-gradient(135deg, rgba(31, 157, 182, 0.13), transparent),
+    #fffdf8;
+  box-shadow: 0 0 0 3px rgba(31, 157, 182, 0.12);
+}
+
+.category-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--river), var(--river-deep));
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.category-card strong,
+.game-card strong {
+  font-size: 1.05rem;
+}
+
+.category-card small,
+.game-card span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.game-card {
+  grid-template-columns: 1fr;
+  border-left: 5px solid var(--gold);
+}
+
+.game-card:not(.disabled)::after {
+  content: "Start setup";
+  justify-self: start;
+  margin-top: 4px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #fff;
+  background: var(--river-deep);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.game-card.disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
 }
 
 .field {
@@ -843,11 +931,16 @@ button:focus-visible {
   }
 
   .hero {
+    display: grid;
+    grid-template-columns: 1fr;
     padding-top: 10px;
   }
 
   .hero-actions {
+    display: flex;
     gap: 7px;
+    justify-self: end;
+    order: -1;
   }
 
   h1 {
@@ -872,6 +965,30 @@ button:focus-visible {
 
   .field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .category-card,
+  .game-card {
+    padding: 15px;
+  }
+
+  .category-card {
+    grid-template-columns: 54px 1fr;
+    align-items: center;
+  }
+
+  .category-card small {
+    grid-column: 2;
+  }
+
+  .category-icon {
+    grid-row: 1 / span 2;
+    width: 50px;
+    height: 50px;
   }
 
   .panel {

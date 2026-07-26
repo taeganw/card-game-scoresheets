@@ -1,7 +1,29 @@
 const STORAGE_KEY = "river-scoresheet-v1";
+const GAME_CATEGORIES = {
+  drinking: {
+    title: "Drinking Games",
+    games: [
+      { id: "coming-drinking", name: "Drinking games", description: "Penalty presets and party modes are coming soon.", enabled: false }
+    ]
+  },
+  card: {
+    title: "Card Games",
+    games: [
+      { id: "river", name: "Up the River, Down the River", description: "Bid, board, track tricks, rotate dealer, and keep score.", enabled: true }
+    ]
+  },
+  party: {
+    title: "Party Games",
+    games: [
+      { id: "coming-party", name: "Party games", description: "Prompt and group-vote games are coming soon.", enabled: false }
+    ]
+  }
+};
 
 const state = {
-  mode: "setup",
+  mode: "home",
+  selectedCategory: "",
+  selectedGame: "",
   playMode: "singles",
   deckSize: 52,
   maxCards: 17,
@@ -15,6 +37,12 @@ const state = {
 };
 
 const els = {
+  homePanel: document.querySelector("#home-panel"),
+  categoryGrid: document.querySelector("#category-grid"),
+  categoryButtons: [...document.querySelectorAll(".category-card")],
+  gamePicker: document.querySelector("#game-picker"),
+  gamePickerTitle: document.querySelector("#game-picker-title"),
+  gameGrid: document.querySelector("#game-grid"),
   setupPanel: document.querySelector("#setup-panel"),
   gameShell: document.querySelector("#game-shell"),
   playerList: document.querySelector("#player-list"),
@@ -61,9 +89,12 @@ function bind() {
   document.querySelector("#undo-round").addEventListener("click", undoRound);
   document.querySelector("#edit-setup").addEventListener("click", showSetup);
   document.querySelector("#reset-game").addEventListener("click", resetGame);
-  document.querySelector("#new-game-top").addEventListener("click", resetGame);
+  document.querySelector("#new-game-top").addEventListener("click", goHome);
   els.wakeLockButton.addEventListener("click", toggleWakeLock);
   document.addEventListener("visibilitychange", restoreWakeLock);
+  els.categoryButtons.forEach((button) => {
+    button.addEventListener("click", () => selectCategory(button.dataset.category));
+  });
 
   els.playMode.addEventListener("change", () => {
     syncSettingsFromDom({ clampRounds: false });
@@ -105,6 +136,33 @@ function startGame() {
   }
   ensureStartingDealer();
   state.mode = "game";
+  state.history = [];
+  save();
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function selectCategory(category) {
+  state.selectedCategory = category;
+  save();
+  renderHome();
+}
+
+function selectGame(gameId) {
+  if (gameId !== "river") return;
+  state.selectedGame = gameId;
+  state.selectedCategory = "card";
+  state.mode = "setup";
+  save();
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function goHome() {
+  if (state.history.length && !confirm("Leave this scoresheet and return home?")) return;
+  state.mode = "home";
+  state.selectedCategory = "";
+  state.selectedGame = "";
   state.history = [];
   save();
   render();
@@ -183,11 +241,38 @@ function render() {
   els.underPoints.value = state.underPoints;
   els.roundPreview.textContent = `1 to ${state.maxCards} to 1`;
   renderScoringRules();
+  els.homePanel.classList.toggle("hidden", state.mode !== "home");
   els.setupPanel.classList.toggle("hidden", state.mode !== "setup");
   els.gameShell.classList.toggle("hidden", state.mode !== "game");
+  renderHome();
   renderPlayers();
   renderGame();
   save();
+}
+
+function renderHome() {
+  els.categoryButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.category === state.selectedCategory);
+  });
+
+  const category = GAME_CATEGORIES[state.selectedCategory];
+  els.gamePicker.classList.toggle("hidden", !category);
+  if (!category) {
+    els.gameGrid.innerHTML = "";
+    return;
+  }
+
+  els.gamePickerTitle.textContent = category.title;
+  els.gameGrid.innerHTML = category.games.map((game) => `
+    <button class="game-card ${game.enabled ? "" : "disabled"}" type="button" data-game="${escapeHtml(game.id)}" ${game.enabled ? "" : "disabled"}>
+      <strong>${escapeHtml(game.name)}</strong>
+      <span>${escapeHtml(game.description)}</span>
+    </button>
+  `).join("");
+
+  [...els.gameGrid.querySelectorAll(".game-card")].forEach((button) => {
+    button.addEventListener("click", () => selectGame(button.dataset.game));
+  });
 }
 
 function renderPlayers() {
@@ -556,6 +641,10 @@ function load() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!saved) return;
     Object.assign(state, saved);
+    if (!["home", "setup", "game"].includes(state.mode)) state.mode = "home";
+    state.selectedCategory = state.selectedCategory || "";
+    state.selectedGame = state.selectedGame || "";
+    if (state.mode === "setup" && !state.selectedGame && !state.history.length) state.mode = "home";
     state.boardPoints = numberValue({ value: state.boardPoints }, 5);
     state.hitPoints = numberValue({ value: state.hitPoints }, 3);
     state.underPoints = numberValue({ value: state.underPoints }, 3);
