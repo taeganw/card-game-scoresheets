@@ -109,6 +109,7 @@ h3 {
 
 .panel {
   padding: 16px;
+  min-width: 0;
 }
 
 .setup-panel,
@@ -186,6 +187,7 @@ h3 {
 input,
 select {
   width: 100%;
+  min-width: 0;
   min-height: 44px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -307,6 +309,7 @@ button:focus-visible {
   top: 0;
   z-index: 3;
   padding: 14px;
+  min-width: 0;
 }
 
 .round-card h2 {
@@ -322,6 +325,7 @@ button:focus-visible {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fffdf8;
+  min-width: 0;
 }
 
 .entry-row.board-armed {
@@ -341,6 +345,7 @@ button:focus-visible {
   color: var(--muted);
   font-size: 0.74rem;
   font-weight: 800;
+  min-width: 0;
 }
 
 .board-toggle {
@@ -350,6 +355,7 @@ button:focus-visible {
   color: var(--muted);
   font-size: 0.74rem;
   font-weight: 800;
+  min-width: 0;
 }
 
 .board-toggle input {
@@ -561,6 +567,10 @@ button:focus-visible {
 }
 
 @media (max-width: 680px) {
+  body {
+    font-size: 18px;
+  }
+
   .app {
     padding-inline: 10px;
   }
@@ -569,16 +579,77 @@ button:focus-visible {
     padding-top: 10px;
   }
 
+  h1 {
+    font-size: clamp(2.7rem, 14vw, 4.4rem);
+  }
+
+  h2 {
+    font-size: 1.55rem;
+  }
+
+  h3 {
+    font-size: 1.18rem;
+  }
+
+  .intro {
+    font-size: 1.12rem;
+  }
+
+  .eyebrow {
+    font-size: 0.86rem;
+  }
+
   .field-grid {
     grid-template-columns: 1fr;
   }
 
   .panel {
-    padding: 13px;
+    padding: 15px;
+  }
+
+  .field {
+    font-size: 0.98rem;
+  }
+
+  input,
+  select {
+    min-height: 56px;
+    padding: 13px 14px;
+    font-size: 1.08rem;
+  }
+
+  .primary-button {
+    min-height: 58px;
+    font-size: 1.08rem;
+  }
+
+  .secondary-button,
+  .ghost-button {
+    min-height: 48px;
+    font-size: 1rem;
+  }
+
+  .icon-button {
+    min-height: 48px;
+    height: 48px;
+    font-size: 0.92rem;
+  }
+
+  .pill {
+    font-size: 0.92rem;
+  }
+
+  .hint,
+  .score-rules {
+    font-size: 1rem;
   }
 
   .player-row {
-    grid-template-columns: minmax(0, 1fr) 96px 44px;
+    grid-template-columns: minmax(0, 1fr) 104px 48px;
+  }
+
+  .round-card h2 {
+    font-size: 1.75rem;
   }
 
   .entry-row {
@@ -588,7 +659,12 @@ button:focus-visible {
 
   .entry-name {
     grid-column: 1 / -1;
-    font-size: 1.02rem;
+    font-size: 1.18rem;
+  }
+
+  .mini-field,
+  .board-toggle {
+    font-size: 0.9rem;
   }
 
   .entry-row input {
@@ -596,7 +672,7 @@ button:focus-visible {
   }
 
   .board-toggle {
-    min-height: 58px;
+    min-height: 72px;
     align-content: end;
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -605,8 +681,8 @@ button:focus-visible {
   }
 
   .board-toggle input {
-    width: 32px;
-    min-height: 32px;
+    width: 36px;
+    min-height: 36px;
   }
 
   .entry-footer {
@@ -620,6 +696,19 @@ button:focus-visible {
   .celebration-card {
     align-self: start;
     margin-top: 26vh;
+  }
+
+  .scoreboard {
+    font-size: 1rem;
+  }
+
+  .scoreboard th,
+  .scoreboard td {
+    padding: 11px 10px;
+  }
+
+  .score-delta {
+    font-size: 0.82rem;
   }
 }
 

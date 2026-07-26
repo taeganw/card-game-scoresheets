@@ -4,7 +4,7 @@ const state = {
   mode: "setup",
   playMode: "singles",
   deckSize: 52,
-  maxCards: 13,
+  maxCards: 12,
   missMode: "under-only",
   players: [
     { id: makeId(), name: "Mom", team: "A" },
@@ -53,15 +53,22 @@ function bind() {
   document.querySelector("#reset-game").addEventListener("click", resetGame);
   document.querySelector("#new-game-top").addEventListener("click", resetGame);
 
-  [els.playMode, els.deckSize, els.maxCards, els.missMode].forEach((input) => {
-    input.addEventListener("input", () => {
-      state.playMode = els.playMode.value;
-      state.deckSize = numberValue(els.deckSize, 52);
-      state.maxCards = numberValue(els.maxCards, suggestedMaxCards());
-      state.missMode = els.missMode.value;
-      save();
-      render();
-    });
+  els.playMode.addEventListener("change", () => {
+    syncSettingsFromDom({ clampRounds: false });
+    render();
+  });
+
+  els.missMode.addEventListener("change", () => {
+    syncSettingsFromDom({ clampRounds: false });
+    render();
+  });
+
+  els.deckSize.addEventListener("input", () => syncSettingsFromDom({ clampRounds: false }));
+  els.maxCards.addEventListener("input", () => syncSettingsFromDom({ clampRounds: false }));
+
+  [els.deckSize, els.maxCards].forEach((input) => {
+    input.addEventListener("change", commitNumericSettings);
+    input.addEventListener("blur", commitNumericSettings);
   });
 }
 
@@ -71,20 +78,20 @@ function addPlayer() {
     name: `Player ${state.players.length + 1}`,
     team: state.players.length % 2 === 0 ? "A" : "B"
   });
-  state.maxCards = suggestedMaxCards();
+  state.maxCards = maxPossibleCards();
   save();
   render();
 }
 
 function startGame() {
   syncPlayersFromDom();
+  syncSettingsFromDom({ clampRounds: true });
   if (state.players.length < 2) {
     els.entryMessage.textContent = "Add at least two players.";
     return;
   }
   state.mode = "game";
   state.history = [];
-  state.maxCards = clamp(numberValue(els.maxCards, suggestedMaxCards()), 1, 26);
   save();
   render();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -152,6 +159,7 @@ function render() {
   els.playMode.value = state.playMode;
   els.deckSize.value = state.deckSize;
   els.maxCards.value = state.maxCards;
+  els.maxCards.max = maxPossibleCards();
   els.missMode.value = state.missMode;
   els.roundPreview.textContent = `1 to ${state.maxCards} to 1`;
   els.setupPanel.classList.toggle("hidden", state.mode !== "setup");
@@ -173,7 +181,7 @@ function renderPlayers() {
     row.querySelector(".team-select").addEventListener("change", syncPlayersFromDom);
     row.querySelector(".remove-player").addEventListener("click", () => {
       state.players = state.players.filter((candidate) => candidate.id !== player.id);
-      state.maxCards = suggestedMaxCards();
+      state.maxCards = maxPossibleCards();
       save();
       render();
     });
@@ -409,16 +417,32 @@ function syncPlayersFromDom() {
     name: row.querySelector(".player-name").value.trim() || `Player ${index + 1}`,
     team: row.querySelector(".team-select").value
   }));
-  state.maxCards = clamp(state.maxCards, 1, suggestedMaxCards());
   save();
+}
+
+function syncSettingsFromDom({ clampRounds }) {
+  state.playMode = els.playMode.value;
+  state.deckSize = clamp(numberValue(els.deckSize, state.deckSize), 20, 108);
+  state.maxCards = numberValue(els.maxCards, state.maxCards);
+  state.missMode = els.missMode.value;
+  if (clampRounds) {
+    state.maxCards = clamp(state.maxCards, 1, maxPossibleCards());
+  }
+  els.roundPreview.textContent = `1 to ${state.maxCards} to 1`;
+  save();
+}
+
+function commitNumericSettings() {
+  syncSettingsFromDom({ clampRounds: true });
+  render();
 }
 
 function syncRoundEntries() {
   if (state.mode === "game") save();
 }
 
-function suggestedMaxCards() {
-  return clamp(Math.floor(state.deckSize / Math.max(state.players.length, 1)), 1, 26);
+function maxPossibleCards() {
+  return clamp(Math.floor((state.deckSize - 1) / Math.max(state.players.length, 1)), 1, 26);
 }
 
 function numberValue(input, fallback) {
