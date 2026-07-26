@@ -6,6 +6,9 @@ const state = {
   deckSize: 52,
   maxCards: 17,
   missMode: "under-only",
+  boardPoints: 5,
+  hitPoints: 3,
+  underPoints: 3,
   players: createDefaultPlayers(),
   history: []
 };
@@ -19,7 +22,13 @@ const els = {
   deckSize: document.querySelector("#deck-size"),
   maxCards: document.querySelector("#max-cards"),
   missMode: document.querySelector("#miss-mode"),
+  boardPoints: document.querySelector("#board-points"),
+  hitPoints: document.querySelector("#hit-points"),
+  underPoints: document.querySelector("#under-points"),
   roundPreview: document.querySelector("#round-preview"),
+  boardRule: document.querySelector("#board-rule"),
+  hitRule: document.querySelector("#hit-rule"),
+  underRule: document.querySelector("#under-rule"),
   roundDirection: document.querySelector("#round-direction"),
   roundTitle: document.querySelector("#round-title"),
   trickTotal: document.querySelector("#trick-total"),
@@ -59,10 +68,11 @@ function bind() {
     render();
   });
 
-  els.deckSize.addEventListener("input", () => syncSettingsFromDom({ clampRounds: false }));
-  els.maxCards.addEventListener("input", () => syncSettingsFromDom({ clampRounds: false }));
+  [els.deckSize, els.maxCards, els.boardPoints, els.hitPoints, els.underPoints].forEach((input) => {
+    input.addEventListener("input", () => syncSettingsFromDom({ clampRounds: false }));
+  });
 
-  [els.deckSize, els.maxCards].forEach((input) => {
+  [els.deckSize, els.maxCards, els.boardPoints, els.hitPoints, els.underPoints].forEach((input) => {
     input.addEventListener("change", commitNumericSettings);
     input.addEventListener("blur", commitNumericSettings);
   });
@@ -145,12 +155,12 @@ function saveRound() {
 
 function scoreRound(entry) {
   if (entry.board) {
-    return entry.tricks === entry.bid ? 5 * entry.tricks : -3 * entry.bid;
+    return entry.tricks === entry.bid ? state.boardPoints * entry.tricks : -state.underPoints * entry.bid;
   }
-  if (entry.tricks === entry.bid) return 3 * entry.tricks;
+  if (entry.tricks === entry.bid) return state.hitPoints * entry.tricks;
   if (state.missMode === "zero") return 0;
-  if (state.missMode === "any-miss") return -3 * entry.bid;
-  return entry.tricks < entry.bid ? -3 * entry.bid : 0;
+  if (state.missMode === "any-miss") return -state.underPoints * entry.bid;
+  return entry.tricks < entry.bid ? -state.underPoints * entry.bid : 0;
 }
 
 function render() {
@@ -159,7 +169,11 @@ function render() {
   els.maxCards.value = state.maxCards;
   els.maxCards.max = maxPossibleCards();
   els.missMode.value = state.missMode;
+  els.boardPoints.value = state.boardPoints;
+  els.hitPoints.value = state.hitPoints;
+  els.underPoints.value = state.underPoints;
   els.roundPreview.textContent = `1 to ${state.maxCards} to 1`;
+  renderScoringRules();
   els.setupPanel.classList.toggle("hidden", state.mode !== "setup");
   els.gameShell.classList.toggle("hidden", state.mode !== "game");
   renderPlayers();
@@ -473,10 +487,17 @@ function syncSettingsFromDom({ clampRounds }) {
   state.deckSize = clamp(numberValue(els.deckSize, state.deckSize), 20, 108);
   state.maxCards = numberValue(els.maxCards, state.maxCards);
   state.missMode = els.missMode.value;
+  state.boardPoints = numberValue(els.boardPoints, state.boardPoints);
+  state.hitPoints = numberValue(els.hitPoints, state.hitPoints);
+  state.underPoints = numberValue(els.underPoints, state.underPoints);
   if (clampRounds) {
     state.maxCards = clamp(state.maxCards, 1, maxPossibleCards());
+    state.boardPoints = clamp(state.boardPoints, 0, 50);
+    state.hitPoints = clamp(state.hitPoints, 0, 50);
+    state.underPoints = clamp(state.underPoints, 0, 50);
   }
   els.roundPreview.textContent = `1 to ${state.maxCards} to 1`;
+  renderScoringRules();
   save();
 }
 
@@ -511,6 +532,9 @@ function load() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!saved) return;
     Object.assign(state, saved);
+    state.boardPoints = numberValue({ value: state.boardPoints }, 5);
+    state.hitPoints = numberValue({ value: state.hitPoints }, 3);
+    state.underPoints = numberValue({ value: state.underPoints }, 3);
     if (usesOriginalSampleNames() && state.history.length === 0) {
       state.players = createDefaultPlayers();
       state.maxCards = maxPossibleCards();
@@ -518,6 +542,12 @@ function load() {
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
+}
+
+function renderScoringRules() {
+  els.boardRule.textContent = `+${state.boardPoints} x tricks`;
+  els.hitRule.textContent = `+${state.hitPoints} x tricks`;
+  els.underRule.textContent = `-${state.underPoints} x bid`;
 }
 
 function playerName(player, index) {
