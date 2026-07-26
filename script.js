@@ -4,14 +4,9 @@ const state = {
   mode: "setup",
   playMode: "singles",
   deckSize: 52,
-  maxCards: 12,
+  maxCards: 17,
   missMode: "under-only",
-  players: [
-    { id: makeId(), name: "Mom", team: "A" },
-    { id: makeId(), name: "Dad", team: "B" },
-    { id: makeId(), name: "Taegan", team: "A" },
-    { id: makeId(), name: "Guest", team: "B" }
-  ],
+  players: createDefaultPlayers(),
   history: []
 };
 
@@ -32,6 +27,7 @@ const els = {
   entryMessage: document.querySelector("#entry-message"),
   scoreboard: document.querySelector("#scoreboard"),
   teamTotals: document.querySelector("#team-totals"),
+  bidStats: document.querySelector("#bid-stats"),
   eventBanner: document.querySelector("#event-banner"),
   celebrationLayer: document.querySelector("#celebration-layer"),
   celebrationCard: document.querySelector("#celebration-card")
@@ -75,7 +71,7 @@ function bind() {
 function addPlayer() {
   state.players.push({
     id: makeId(),
-    name: `Player ${state.players.length + 1}`,
+    name: "",
     team: state.players.length % 2 === 0 ? "A" : "B"
   });
   state.maxCards = maxPossibleCards();
@@ -108,6 +104,8 @@ function resetGame() {
   if (!confirm("Clear this scoresheet and start over?")) return;
   state.mode = "setup";
   state.history = [];
+  state.players = createDefaultPlayers();
+  state.maxCards = maxPossibleCards();
   save();
   render();
 }
@@ -175,7 +173,9 @@ function renderPlayers() {
   state.players.forEach((player) => {
     const row = els.playerTemplate.content.firstElementChild.cloneNode(true);
     row.dataset.playerId = player.id;
+    const index = state.players.indexOf(player);
     row.querySelector(".player-name").value = player.name;
+    row.querySelector(".player-name").placeholder = `Player ${index + 1}`;
     row.querySelector(".team-select").value = player.team;
     row.querySelector(".player-name").addEventListener("input", syncPlayersFromDom);
     row.querySelector(".team-select").addEventListener("change", syncPlayersFromDom);
@@ -196,6 +196,7 @@ function renderGame() {
   els.roundTitle.textContent = round.finished ? "Game complete" : `Round ${state.history.length + 1}: ${round.cards} card${round.cards === 1 ? "" : "s"}`;
   renderRoundEntry(round);
   renderTeamTotals();
+  renderBidStats();
   renderScoreboard();
 }
 
@@ -208,12 +209,13 @@ function renderRoundEntry(round) {
   }
   document.querySelector("#save-round").disabled = false;
 
-  state.players.forEach((player) => {
+  state.players.forEach((player, index) => {
     const row = document.createElement("div");
     row.className = "entry-row";
     row.dataset.playerId = player.id;
+    const team = state.playMode === "teams" ? `<span class="entry-team">Team ${escapeHtml(player.team)}</span>` : "";
     row.innerHTML = `
-      <div class="entry-name">${escapeHtml(player.name)}</div>
+      <div class="entry-name">${escapeHtml(playerName(player, index))}${team}</div>
       <label class="mini-field">Bid <input class="bid-input" type="number" min="0" max="${round.cards}" step="1" value="0"></label>
       <label class="mini-field">Took <input class="tricks-input" type="number" min="0" max="${round.cards}" step="1" value="0"></label>
       <label class="board-toggle">Board <input class="board-input" type="checkbox"></label>
@@ -239,26 +241,52 @@ function renderTeamTotals() {
     const total = state.players
       .filter((player) => player.team === team)
       .reduce((sum, player) => sum + scores[player.id], 0);
+    const members = state.players
+      .map((player, index) => ({ player, index }))
+      .filter(({ player }) => player.team === team)
+      .map(({ player, index }) => playerName(player, index))
+      .join(", ") || "No players";
     const card = document.createElement("div");
     card.className = "team-total";
-    card.innerHTML = `<span>Team ${team}</span><strong>${total}</strong>`;
+    card.innerHTML = `<span>Team ${team}</span><strong>${total}</strong><em>${escapeHtml(members)}</em>`;
     els.teamTotals.append(card);
   });
 }
 
+function renderBidStats() {
+  const stats = currentBidStats();
+  els.bidStats.innerHTML = state.players.map((player, index) => {
+    const stat = stats[player.id];
+    const team = state.playMode === "teams" ? `<span class="stat-team">Team ${escapeHtml(player.team)}</span>` : "";
+    return `
+      <div class="stat-card">
+        <strong>${escapeHtml(playerName(player, index))}</strong>
+        ${team}
+        <span>${stat.hit} hit</span>
+        <span>${stat.under} under</span>
+      </div>
+    `;
+  }).join("");
+}
+
 function renderScoreboard() {
   const scores = currentScores();
-  const leaders = [...state.players].sort((a, b) => scores[b.id] - scores[a.id]);
-  const head = `<thead><tr><th>Round</th>${leaders.map((p) => `<th>${escapeHtml(p.name)}</th>`).join("")}</tr></thead>`;
+  const leaders = state.players
+    .map((player, index) => ({ player, index }))
+    .sort((a, b) => scores[b.player.id] - scores[a.player.id]);
+  const head = `<thead><tr><th>Round</th>${leaders.map(({ player, index }) => {
+    const team = state.playMode === "teams" ? `<span class="score-team">Team ${escapeHtml(player.team)}</span>` : "";
+    return `<th>${escapeHtml(playerName(player, index))}${team}</th>`;
+  }).join("")}</tr></thead>`;
   const bodyRows = state.history.map((round, index) => {
     const entriesByPlayer = Object.fromEntries(round.entries.map((entry) => [entry.playerId, entry]));
-    return `<tr><td>${index + 1}. ${round.cards}</td>${leaders.map((player) => {
+    return `<tr><td>${index + 1}. ${round.cards}</td>${leaders.map(({ player }) => {
       const entry = entriesByPlayer[player.id];
       const label = entry.board ? "board" : `bid ${entry.bid}`;
       return `<td>${entry.delta > 0 ? "+" : ""}${entry.delta}<span class="score-delta">${label}, took ${entry.tricks}</span></td>`;
     }).join("")}</tr>`;
   }).join("");
-  const foot = `<tfoot><tr><th>Total</th>${leaders.map((player) => `<td>${scores[player.id]}</td>`).join("")}</tr></tfoot>`;
+  const foot = `<tfoot><tr><th>Total</th>${leaders.map(({ player }) => `<td>${scores[player.id]}</td>`).join("")}</tr></tfoot>`;
   els.scoreboard.innerHTML = `${head}<tbody>${bodyRows || `<tr><td colspan="${leaders.length + 1}">No rounds scored yet.</td></tr>`}</tbody>${foot}`;
 }
 
@@ -274,11 +302,15 @@ function buildRoundEvent(rows, previousScores, finished) {
   if (finished) {
     const scores = currentScores();
     const best = Math.max(...Object.values(scores));
-    const winners = state.players.filter((player) => scores[player.id] === best);
-    const leaderChanged = winners.some((player) => scores[player.id] > (previousScores[player.id] || 0));
+    const winners = state.players
+      .map((player, index) => ({ player, index }))
+      .filter(({ player }) => scores[player.id] === best);
+    const leaderChanged = winners.some(({ player }) => scores[player.id] > (previousScores[player.id] || 0));
     return {
       type: "win",
-      title: winners.length === 1 ? `${winners[0].name} wins` : `${winners.map((player) => player.name).join(" and ")} tie`,
+      title: winners.length === 1
+        ? `${playerName(winners[0].player, winners[0].index)} wins`
+        : `${winners.map(({ player, index }) => playerName(player, index)).join(" and ")} tie`,
       detail: `Final score: ${best}`,
       confetti: true,
       banner: leaderChanged ? "Final round shook up the table." : "Final scores are in."
@@ -286,7 +318,7 @@ function buildRoundEvent(rows, previousScores, finished) {
   }
 
   if (madeBoards.length) {
-    const names = madeBoards.map((entry) => entry.player.name).join(" and ");
+    const names = madeBoards.map((entry) => playerName(entry.player, state.players.indexOf(entry.player))).join(" and ");
     return {
       type: "board",
       title: `${names} made board`,
@@ -297,7 +329,7 @@ function buildRoundEvent(rows, previousScores, finished) {
   }
 
   if (missedBoards.length) {
-    const names = missedBoards.map((entry) => entry.player.name).join(" and ");
+    const names = missedBoards.map((entry) => playerName(entry.player, state.players.indexOf(entry.player))).join(" and ");
     return {
       type: "miss",
       title: `${names} missed board`,
@@ -308,17 +340,18 @@ function buildRoundEvent(rows, previousScores, finished) {
   }
 
   const biggestGain = rows.reduce((best, entry) => entry.delta > best.delta ? entry : best, rows[0]);
-  const player = state.players.find((candidate) => candidate.id === biggestGain.playerId);
+  const playerIndex = state.players.findIndex((candidate) => candidate.id === biggestGain.playerId);
+  const player = state.players[playerIndex];
   return {
     type: "plain",
-    banner: player && biggestGain.delta > 0 ? `${player.name} led the round with +${biggestGain.delta}.` : "Round saved."
+    banner: player && biggestGain.delta > 0 ? `${playerName(player, playerIndex)} led the round with +${biggestGain.delta}.` : "Round saved."
   };
 }
 
 function showRoundEvent(event) {
   if (!event) return;
-  showBanner(event.banner, event.type);
   if (event.type === "plain") return;
+  showBanner(event.banner, event.type);
   showCelebration(event);
 }
 
@@ -404,6 +437,21 @@ function currentScores() {
   return totals;
 }
 
+function currentBidStats() {
+  const stats = Object.fromEntries(state.players.map((player) => [player.id, { hit: 0, under: 0 }]));
+  state.history.forEach((round) => {
+    round.entries.forEach((entry) => {
+      if (!stats[entry.playerId]) return;
+      if (entry.tricks === entry.bid) {
+        stats[entry.playerId].hit += 1;
+      } else if (entry.tricks < entry.bid) {
+        stats[entry.playerId].under += 1;
+      }
+    });
+  });
+  return stats;
+}
+
 function updateTrickTotal(round) {
   const total = [...els.roundEntry.querySelectorAll(".tricks-input")].reduce((sum, input) => sum + numberValue(input, 0), 0);
   els.trickTotal.textContent = `${total} / ${round.cards} tricks`;
@@ -414,7 +462,7 @@ function updateTrickTotal(round) {
 function syncPlayersFromDom() {
   state.players = [...els.playerList.querySelectorAll(".player-row")].map((row, index) => ({
     id: row.dataset.playerId,
-    name: row.querySelector(".player-name").value.trim() || `Player ${index + 1}`,
+    name: row.querySelector(".player-name").value.trim(),
     team: row.querySelector(".team-select").value
   }));
   save();
@@ -463,9 +511,30 @@ function load() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!saved) return;
     Object.assign(state, saved);
+    if (usesOriginalSampleNames() && state.history.length === 0) {
+      state.players = createDefaultPlayers();
+      state.maxCards = maxPossibleCards();
+    }
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
+}
+
+function playerName(player, index) {
+  return player.name || `Player ${index + 1}`;
+}
+
+function createDefaultPlayers() {
+  return [0, 1, 2].map((index) => ({
+    id: makeId(),
+    name: "",
+    team: index % 2 === 0 ? "A" : "B"
+  }));
+}
+
+function usesOriginalSampleNames() {
+  const names = state.players.map((player) => player.name).join("|");
+  return names === "Mom|Dad|Taegan|Guest";
 }
 
 function escapeHtml(value) {

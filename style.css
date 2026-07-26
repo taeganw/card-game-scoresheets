@@ -119,15 +119,20 @@ h3 {
 }
 
 .event-banner {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  right: 14px;
+  bottom: max(86px, calc(env(safe-area-inset-bottom) + 14px));
+  left: 14px;
   z-index: 4;
+  max-width: 952px;
+  margin: 0 auto;
   padding: 12px 14px;
   border-radius: 8px;
   color: #fff;
   background: var(--accent);
   box-shadow: var(--shadow);
   font-weight: 850;
+  pointer-events: none;
   animation: banner-in 360ms ease both;
 }
 
@@ -395,6 +400,55 @@ button:focus-visible {
   font-size: 1.55rem;
 }
 
+.team-total em {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.bid-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.stat-card {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffaf3;
+}
+
+.stat-card strong {
+  font-size: 0.94rem;
+}
+
+.stat-card span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.stat-card .stat-team,
+.entry-team,
+.score-team {
+  display: block;
+  color: var(--accent-dark);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.entry-team {
+  margin-top: 2px;
+}
+
 .scoreboard-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);
@@ -532,7 +586,7 @@ button:focus-visible {
 @keyframes banner-in {
   0% {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(8px);
   }
   100% {
     opacity: 1;
@@ -683,6 +737,22 @@ button:focus-visible {
   .board-toggle input {
     width: 36px;
     min-height: 36px;
+  }
+
+  .bid-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stat-card {
+    padding: 11px;
+  }
+
+  .stat-card strong {
+    font-size: 1.02rem;
+  }
+
+  .stat-card span {
+    font-size: 0.92rem;
   }
 
   .entry-footer {

@@ -107,6 +107,7 @@
             <button type="button" class="secondary-button danger" id="reset-game">Reset</button>
           </div>
           <div class="team-totals hidden" id="team-totals"></div>
+          <div class="bid-stats" id="bid-stats"></div>
           <div class="scoreboard-wrap">
             <table class="scoreboard" id="scoreboard"></table>
           </div>
@@ -120,7 +121,7 @@
 
     <template id="player-row-template">
       <div class="player-row">
-        <input class="player-name" type="text" maxlength="18" placeholder="Player name">
+        <input class="player-name" type="text" maxlength="18">
         <select class="team-select" aria-label="Team">
           <option value="A">Team A</option>
           <option value="B">Team B</option>
