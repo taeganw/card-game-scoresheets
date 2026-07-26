@@ -82,11 +82,11 @@
         </div>
 
         <div class="players-header">
-          <h3>Players</h3>
+          <h3>Players clockwise</h3>
           <button type="button" class="secondary-button" id="add-player">Add player</button>
         </div>
         <div class="player-list" id="player-list"></div>
-        <p class="hint">Each person gets a score column. Highest round leaves one extra card for trump.</p>
+        <p class="hint">Enter players in clockwise table order. Pick a starting dealer, or the app will choose one randomly.</p>
 
         <button class="primary-button" type="button" id="start-game">Start scoring</button>
       </section>
@@ -98,6 +98,7 @@
           <div>
             <p class="eyebrow" id="round-direction">Up river</p>
             <h2 id="round-title">Round 1: 1 card</h2>
+            <p class="dealer-line" id="dealer-line">Dealer: Player 1</p>
           </div>
           <div class="round-actions">
             <button type="button" class="icon-button" id="undo-round" aria-label="Undo last round" title="Undo last round">Undo</button>
@@ -148,6 +149,10 @@
           <option value="A">Team A</option>
           <option value="B">Team B</option>
         </select>
+        <label class="dealer-select">
+          <span>Dealer</span>
+          <input class="dealer-input" type="radio" name="starting-dealer">
+        </label>
         <button type="button" class="icon-button remove-player" aria-label="Remove player" title="Remove player">X</button>
       </div>
     </template>

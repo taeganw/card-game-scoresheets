@@ -9,6 +9,7 @@ const state = {
   boardPoints: 5,
   hitPoints: 3,
   underPoints: 3,
+  startingDealerId: "",
   players: createDefaultPlayers(),
   history: []
 };
@@ -31,6 +32,7 @@ const els = {
   underRule: document.querySelector("#under-rule"),
   roundDirection: document.querySelector("#round-direction"),
   roundTitle: document.querySelector("#round-title"),
+  dealerLine: document.querySelector("#dealer-line"),
   trickTotal: document.querySelector("#trick-total"),
   roundEntry: document.querySelector("#round-entry"),
   entryMessage: document.querySelector("#entry-message"),
@@ -96,6 +98,7 @@ function startGame() {
     els.entryMessage.textContent = "Add at least two players.";
     return;
   }
+  ensureStartingDealer();
   state.mode = "game";
   state.history = [];
   save();
@@ -115,6 +118,7 @@ function resetGame() {
   state.mode = "setup";
   state.history = [];
   state.players = createDefaultPlayers();
+  state.startingDealerId = "";
   state.maxCards = maxPossibleCards();
   save();
   render();
@@ -191,10 +195,17 @@ function renderPlayers() {
     row.querySelector(".player-name").value = player.name;
     row.querySelector(".player-name").placeholder = `Player ${index + 1}`;
     row.querySelector(".team-select").value = player.team;
+    row.querySelector(".dealer-input").checked = player.id === state.startingDealerId;
     row.querySelector(".player-name").addEventListener("input", syncPlayersFromDom);
     row.querySelector(".team-select").addEventListener("change", syncPlayersFromDom);
+    row.querySelector(".dealer-input").addEventListener("change", () => {
+      state.startingDealerId = player.id;
+      save();
+      render();
+    });
     row.querySelector(".remove-player").addEventListener("click", () => {
       state.players = state.players.filter((candidate) => candidate.id !== player.id);
+      if (state.startingDealerId === player.id) state.startingDealerId = "";
       state.maxCards = maxPossibleCards();
       save();
       render();
@@ -208,6 +219,7 @@ function renderGame() {
   const round = currentRound();
   els.roundDirection.textContent = round.direction === "up" ? "Up river" : "Down river";
   els.roundTitle.textContent = round.finished ? "Game complete" : `Round ${state.history.length + 1}: ${round.cards} card${round.cards === 1 ? "" : "s"}`;
+  renderDealerLine();
   renderRoundEntry(round);
   renderTeamTotals();
   renderBidStats();
@@ -227,9 +239,10 @@ function renderRoundEntry(round) {
     const row = document.createElement("div");
     row.className = "entry-row";
     row.dataset.playerId = player.id;
+    if (player.id === currentDealerId()) row.classList.add("active-dealer");
     const team = state.playMode === "teams" ? `<span class="entry-team">Team ${escapeHtml(player.team)}</span>` : "";
     row.innerHTML = `
-      <div class="entry-name">${escapeHtml(playerName(player, index))}${team}</div>
+      <div class="entry-name">${escapeHtml(playerName(player, index))}${team}${player.id === currentDealerId() ? '<span class="dealer-badge">Dealer</span>' : ""}</div>
       <label class="mini-field">Bid <input class="bid-input" type="number" min="0" max="${round.cards}" step="1" value="0"></label>
       <label class="mini-field">Took <input class="tricks-input" type="number" min="0" max="${round.cards}" step="1" value="0"></label>
       <label class="board-toggle">Board <input class="board-input" type="checkbox"></label>
@@ -294,7 +307,10 @@ function renderScoreboard() {
   }).join("")}</tr></thead>`;
   const bodyRows = state.history.map((round, index) => {
     const entriesByPlayer = Object.fromEntries(round.entries.map((entry) => [entry.playerId, entry]));
-    return `<tr><td>${index + 1}. ${round.cards}</td>${leaders.map(({ player }) => {
+    const dealer = dealerForRound(index);
+    const dealerIndex = state.players.findIndex((player) => player.id === dealer?.id);
+    const dealerText = dealer ? `<span class="score-delta">Dealer: ${escapeHtml(playerName(dealer, dealerIndex))}</span>` : "";
+    return `<tr><td>${index + 1}. ${round.cards}${dealerText}</td>${leaders.map(({ player }) => {
       const entry = entriesByPlayer[player.id];
       const label = entry.board ? "board" : `bid ${entry.bid}`;
       return `<td>${entry.delta > 0 ? "+" : ""}${entry.delta}<span class="score-delta">${label}, took ${entry.tricks}</span></td>`;
@@ -479,6 +495,9 @@ function syncPlayersFromDom() {
     name: row.querySelector(".player-name").value.trim(),
     team: row.querySelector(".team-select").value
   }));
+  const dealerRow = [...els.playerList.querySelectorAll(".player-row")]
+    .find((row) => row.querySelector(".dealer-input").checked);
+  state.startingDealerId = dealerRow ? dealerRow.dataset.playerId : "";
   save();
 }
 
@@ -535,6 +554,9 @@ function load() {
     state.boardPoints = numberValue({ value: state.boardPoints }, 5);
     state.hitPoints = numberValue({ value: state.hitPoints }, 3);
     state.underPoints = numberValue({ value: state.underPoints }, 3);
+    if (!state.players.some((player) => player.id === state.startingDealerId)) {
+      state.startingDealerId = "";
+    }
     if (usesOriginalSampleNames() && state.history.length === 0) {
       state.players = createDefaultPlayers();
       state.maxCards = maxPossibleCards();
@@ -542,6 +564,28 @@ function load() {
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
+}
+
+function ensureStartingDealer() {
+  if (state.players.some((player) => player.id === state.startingDealerId)) return;
+  const randomIndex = Math.floor(Math.random() * state.players.length);
+  state.startingDealerId = state.players[randomIndex].id;
+}
+
+function currentDealerId() {
+  return dealerForRound(state.history.length)?.id || "";
+}
+
+function dealerForRound(roundIndex) {
+  if (!state.players.length) return null;
+  const startIndex = Math.max(0, state.players.findIndex((player) => player.id === state.startingDealerId));
+  return state.players[(startIndex + roundIndex) % state.players.length];
+}
+
+function renderDealerLine() {
+  const dealer = dealerForRound(state.history.length);
+  const dealerIndex = state.players.findIndex((player) => player.id === dealer?.id);
+  els.dealerLine.textContent = dealer ? `Dealer: ${playerName(dealer, dealerIndex)}` : "Dealer: random on start";
 }
 
 function renderScoringRules() {
