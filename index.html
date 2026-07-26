@@ -10,10 +10,20 @@
   <body>
     <main class="app">
       <section class="hero" aria-labelledby="page-title">
-        <div>
+        <div class="hero-copy">
           <p class="eyebrow">Card game scoresheets</p>
           <h1 id="page-title">Up the River, Down the River</h1>
           <p class="intro">A phone-friendly scorekeeper for bids, tricks, boards, teams, and the climb up and back down.</p>
+          <div class="river-scene" aria-hidden="true">
+            <div class="river-current">
+              <span class="floating-card card-a">A</span>
+              <span class="floating-card card-k">K</span>
+              <span class="floating-card card-q">Q</span>
+              <span class="river-chip">bid</span>
+              <span class="river-chip">board</span>
+              <span class="river-chip">trump</span>
+            </div>
+          </div>
         </div>
         <button class="ghost-button" type="button" id="new-game-top">New</button>
       </section>
