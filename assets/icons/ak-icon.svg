@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AK cards icon">
+  <rect width="512" height="512" rx="112" fill="#0f6178"/>
+  <path d="M0 320c76-42 134-30 210 0s136 43 302-36v228H0z" fill="#1f9db6"/>
+  <path d="M0 374c82-36 148-28 214 0 74 31 148 31 298-42v180H0z" fill="#79a761" opacity=".88"/>
+  <g transform="translate(96 93) rotate(-10)">
+    <rect width="162" height="236" rx="22" fill="#fffaf2" stroke="#e2d7c6" stroke-width="8"/>
+    <text x="48" y="87" fill="#b64435" font-family="Arial, Helvetica, sans-serif" font-size="66" font-weight="900">A</text>
+    <path d="M80 132l38 64H42z" fill="#b64435"/>
+  </g>
+  <g transform="translate(235 112) rotate(9)">
+    <rect width="162" height="236" rx="22" fill="#fffaf2" stroke="#e2d7c6" stroke-width="8"/>
+    <text x="49" y="87" fill="#211d18" font-family="Arial, Helvetica, sans-serif" font-size="66" font-weight="900">K</text>
+    <path d="M82 132l42 42-42 42-42-42z" fill="#211d18"/>
+  </g>
+  <path d="M72 414c84-26 133-19 199 5 63 23 107 16 169-19" fill="none" stroke="#fffaf2" stroke-width="18" stroke-linecap="round" opacity=".72"/>
+</svg>

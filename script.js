@@ -41,11 +41,14 @@ const els = {
   bidStats: document.querySelector("#bid-stats"),
   eventBanner: document.querySelector("#event-banner"),
   celebrationLayer: document.querySelector("#celebration-layer"),
-  celebrationCard: document.querySelector("#celebration-card")
+  celebrationCard: document.querySelector("#celebration-card"),
+  wakeLockButton: document.querySelector("#wake-lock")
 };
 
 let celebrationTimer;
 let bannerTimer;
+let wakeLockSentinel;
+let wakeLockRequested = false;
 
 load();
 bind();
@@ -59,6 +62,8 @@ function bind() {
   document.querySelector("#edit-setup").addEventListener("click", showSetup);
   document.querySelector("#reset-game").addEventListener("click", resetGame);
   document.querySelector("#new-game-top").addEventListener("click", resetGame);
+  els.wakeLockButton.addEventListener("click", toggleWakeLock);
+  document.addEventListener("visibilitychange", restoreWakeLock);
 
   els.playMode.addEventListener("change", () => {
     syncSettingsFromDom({ clampRounds: false });
@@ -592,6 +597,60 @@ function renderScoringRules() {
   els.boardRule.textContent = `+${state.boardPoints} x tricks`;
   els.hitRule.textContent = `+${state.hitPoints} x tricks`;
   els.underRule.textContent = `-${state.underPoints} x bid`;
+}
+
+async function toggleWakeLock() {
+  if (wakeLockSentinel) {
+    wakeLockRequested = false;
+    await releaseWakeLock();
+    showWakeLockState("Wake");
+    return;
+  }
+
+  wakeLockRequested = true;
+  await requestWakeLock();
+}
+
+async function requestWakeLock() {
+  if (!("wakeLock" in navigator)) {
+    wakeLockRequested = false;
+    showWakeLockState("Not supported");
+    window.setTimeout(() => showWakeLockState("Wake"), 2600);
+    return;
+  }
+
+  try {
+    wakeLockSentinel = await navigator.wakeLock.request("screen");
+    showWakeLockState("Awake", true);
+    wakeLockSentinel.addEventListener("release", () => {
+      wakeLockSentinel = null;
+      if (!wakeLockRequested) showWakeLockState("Wake");
+    });
+  } catch {
+    wakeLockSentinel = null;
+    wakeLockRequested = false;
+    showWakeLockState("Wake failed");
+    window.setTimeout(() => showWakeLockState("Wake"), 2600);
+  }
+}
+
+async function releaseWakeLock() {
+  if (!wakeLockSentinel) return;
+  const sentinel = wakeLockSentinel;
+  wakeLockSentinel = null;
+  await sentinel.release();
+}
+
+function restoreWakeLock() {
+  if (document.visibilityState === "visible" && wakeLockRequested && !wakeLockSentinel) {
+    requestWakeLock();
+  }
+}
+
+function showWakeLockState(label, active = false) {
+  els.wakeLockButton.textContent = label;
+  els.wakeLockButton.classList.toggle("active", active);
+  els.wakeLockButton.setAttribute("aria-pressed", active ? "true" : "false");
 }
 
 function playerName(player, index) {

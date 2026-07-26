@@ -76,6 +76,12 @@ button {
   padding: 18px 2px 16px;
 }
 
+.hero-actions {
+  display: grid;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 .hero-copy {
   min-width: 0;
 }
@@ -456,6 +462,11 @@ button:focus-visible {
   min-height: 40px;
 }
 
+.ghost-button.active {
+  color: #fff;
+  background: var(--river-deep);
+}
+
 .icon-button {
   display: inline-grid;
   place-items: center;
@@ -833,6 +844,10 @@ button:focus-visible {
 
   .hero {
     padding-top: 10px;
+  }
+
+  .hero-actions {
+    gap: 7px;
   }
 
   h1 {

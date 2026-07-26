@@ -16,3 +16,5 @@ Open `index.html` locally or publish the folder with GitHub Pages.
 The default highest round leaves one card for trump. With two players and a 52-card deck, the highest round is 25 because each player gets 25 cards and one card is flipped for trump. The highest round is played twice: once up river and once down river.
 
 Players should be entered in clockwise table order. Pick a starting dealer in setup, or the app randomly chooses one when scoring starts. Dealer rotates to the next player each round.
+
+The site includes matching favicon, Apple touch icon, and web app manifest icons. The Wake button uses the Screen Wake Lock API where supported to help prevent the phone from sleeping while scoring.
