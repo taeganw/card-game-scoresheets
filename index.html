@@ -151,7 +151,14 @@
           </div>
         </section>
 
-        <section class="panel entry-panel">
+        <nav class="game-tabs" id="game-tabs" aria-label="Game views">
+          <button type="button" class="game-tab active" data-tab="score">Score</button>
+          <button type="button" class="game-tab" data-tab="table">Table</button>
+          <button type="button" class="game-tab" data-tab="stats">Stats</button>
+          <button type="button" class="game-tab" data-tab="rounds">Rounds</button>
+        </nav>
+
+        <section class="panel entry-panel game-panel active" data-tab-panel="score">
           <div class="section-heading compact">
             <div>
               <p class="eyebrow">Score round</p>
@@ -166,16 +173,35 @@
           </div>
         </section>
 
-        <section class="panel standings-panel">
+        <section class="panel standings-panel game-panel" data-tab-panel="table">
           <div class="section-heading compact">
             <div>
               <p class="eyebrow">Standings</p>
-              <h2>Scoresheet</h2>
+              <h2>Table</h2>
             </div>
             <button type="button" class="secondary-button danger" id="reset-game">Reset</button>
           </div>
           <div class="team-totals hidden" id="team-totals"></div>
+          <div class="standings-list" id="standings-list"></div>
+        </section>
+
+        <section class="panel stats-panel game-panel" data-tab-panel="stats">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">Trends</p>
+              <h2>Bids</h2>
+            </div>
+          </div>
           <div class="bid-stats" id="bid-stats"></div>
+        </section>
+
+        <section class="panel standings-panel game-panel" data-tab-panel="rounds">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">History</p>
+              <h2>Rounds</h2>
+            </div>
+          </div>
           <div class="scoreboard-wrap">
             <table class="scoreboard" id="scoreboard"></table>
           </div>

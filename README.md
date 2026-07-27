@@ -6,6 +6,8 @@ Open `index.html` locally or publish the folder with GitHub Pages.
 
 The home screen groups games by Drinking Game, Card Game, and Party Game. Up the River, Down the River is available under Card Game.
 
+The in-game screen is organized into Score, Table, Stats, and Rounds tabs so the active game view stays inside one mobile viewport instead of becoming a long scrolling page.
+
 ## Current scoring
 
 - Board: exact all-tricks bid scores `5 x tricks`; missing it loses `5 x board bid`.

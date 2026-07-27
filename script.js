@@ -24,6 +24,7 @@ const state = {
   mode: "home",
   selectedCategory: "",
   selectedGame: "",
+  activeTab: "score",
   playMode: "singles",
   deckSize: 52,
   maxCards: 17,
@@ -45,6 +46,8 @@ const els = {
   gameGrid: document.querySelector("#game-grid"),
   setupPanel: document.querySelector("#setup-panel"),
   gameShell: document.querySelector("#game-shell"),
+  gameTabs: [...document.querySelectorAll(".game-tab")],
+  gamePanels: [...document.querySelectorAll(".game-panel")],
   playerList: document.querySelector("#player-list"),
   playerTemplate: document.querySelector("#player-row-template"),
   playMode: document.querySelector("#play-mode"),
@@ -68,6 +71,7 @@ const els = {
   entryMessage: document.querySelector("#entry-message"),
   scoreboard: document.querySelector("#scoreboard"),
   teamTotals: document.querySelector("#team-totals"),
+  standingsList: document.querySelector("#standings-list"),
   bidStats: document.querySelector("#bid-stats"),
   startGameButton: document.querySelector("#start-game"),
   eventBanner: document.querySelector("#event-banner"),
@@ -104,6 +108,9 @@ function bind() {
   document.addEventListener("visibilitychange", restoreWakeLock);
   els.categoryButtons.forEach((button) => {
     button.addEventListener("click", () => selectCategory(button.dataset.category));
+  });
+  els.gameTabs.forEach((button) => {
+    button.addEventListener("click", () => setActiveTab(button.dataset.tab));
   });
 
   els.playMode.addEventListener("change", () => {
@@ -147,6 +154,7 @@ function startGame() {
     ensureStartingDealer();
   }
   state.mode = "game";
+  state.activeTab = "score";
   save();
   render();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -173,6 +181,7 @@ function goHome() {
   state.mode = "home";
   state.selectedCategory = "";
   state.selectedGame = "";
+  state.activeTab = "score";
   state.history = [];
   save();
   render();
@@ -189,6 +198,7 @@ function showSetup() {
 function resetGame() {
   if (!confirm("Clear this scoresheet and start over?")) return;
   state.mode = "setup";
+  state.activeTab = "score";
   state.history = [];
   state.players = createDefaultPlayers();
   state.startingDealerId = "";
@@ -240,6 +250,7 @@ function scoreRound(entry) {
 }
 
 function render() {
+  document.body.classList.toggle("game-active", state.mode === "game");
   els.playMode.value = state.playMode;
   els.deckSize.value = state.deckSize;
   els.maxCards.value = state.maxCards;
@@ -256,6 +267,7 @@ function render() {
   els.gameShell.classList.toggle("hidden", state.mode !== "game");
   renderHome();
   renderPlayers();
+  renderGameTabs();
   renderGame();
   save();
 }
@@ -322,8 +334,28 @@ function renderGame() {
   renderDealerLine();
   renderRoundEntry(round);
   renderTeamTotals();
+  renderStandingsList();
   renderBidStats();
   renderScoreboard();
+}
+
+function setActiveTab(tab) {
+  state.activeTab = ["score", "table", "stats", "rounds"].includes(tab) ? tab : "score";
+  save();
+  renderGameTabs();
+}
+
+function renderGameTabs() {
+  const activeTab = ["score", "table", "stats", "rounds"].includes(state.activeTab) ? state.activeTab : "score";
+  state.activeTab = activeTab;
+  els.gameTabs.forEach((button) => {
+    const isActive = button.dataset.tab === activeTab;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+  els.gamePanels.forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.tabPanel === activeTab);
+  });
 }
 
 function renderRoundEntry(round) {
@@ -402,6 +434,24 @@ function renderTeamTotals() {
     card.innerHTML = `<span>Team ${team}</span><strong>${total}</strong><em>${escapeHtml(members)}</em>`;
     els.teamTotals.append(card);
   });
+}
+
+function renderStandingsList() {
+  const scores = currentScores();
+  const ranked = state.players
+    .map((player, index) => ({ player, index, score: scores[player.id] || 0 }))
+    .sort((a, b) => b.score - a.score);
+  els.standingsList.innerHTML = ranked.map(({ player, index, score }, rank) => {
+    const team = state.playMode === "teams" ? `<span>Team ${escapeHtml(player.team)}</span>` : "";
+    const dealer = player.id === currentDealerId() ? '<span class="dealer-badge compact-badge">Dealer</span>' : "";
+    return `
+      <div class="standing-row">
+        <strong>${rank + 1}</strong>
+        <div>${escapeHtml(playerName(player, index))}${team}${dealer}</div>
+        <b>${score}</b>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderBidStats() {
@@ -689,6 +739,7 @@ function load() {
     if (!["home", "setup", "game"].includes(state.mode)) state.mode = "home";
     state.selectedCategory = state.selectedCategory || "";
     state.selectedGame = state.selectedGame || "";
+    state.activeTab = ["score", "table", "stats", "rounds"].includes(state.activeTab) ? state.activeTab : "score";
     if (state.mode === "setup" && !state.selectedGame && !state.history.length) state.mode = "home";
     state.boardPoints = numberValue({ value: state.boardPoints }, 5);
     state.boardMissPoints = numberValue({ value: state.boardMissPoints }, 5);
