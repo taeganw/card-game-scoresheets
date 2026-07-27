@@ -417,7 +417,20 @@ function renderRoundEntry(round) {
     row.querySelectorAll(".bid-input, .tricks-input").forEach((input) => prepareScoreInput(input, round));
     els.roundEntry.append(row);
   });
+  applyEntryTabOrder();
   updateTrickTotal(round);
+}
+
+function applyEntryTabOrder() {
+  const bids = [...els.roundEntry.querySelectorAll(".bid-input")];
+  const tricks = [...els.roundEntry.querySelectorAll(".tricks-input")];
+  bids.forEach((input, index) => {
+    input.tabIndex = index + 1;
+  });
+  tricks.forEach((input, index) => {
+    input.tabIndex = bids.length + index + 1;
+  });
+  document.querySelector("#save-round").tabIndex = bids.length + tricks.length + 1;
 }
 
 function prepareScoreInput(input, round) {
