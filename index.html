@@ -101,14 +101,6 @@
             <input id="max-cards" type="number" min="1" max="26" step="1" value="13">
           </label>
           <label class="field">
-            <span>Miss scoring</span>
-            <select id="miss-mode">
-              <option value="under-only">Only under-bids lose points</option>
-              <option value="any-miss">Any missed bid loses points</option>
-              <option value="zero">Missed bids score zero</option>
-            </select>
-          </label>
-          <label class="field">
             <span>Board points per trick</span>
             <input id="board-points" type="number" min="0" max="50" step="1" value="5">
           </label>
@@ -131,6 +123,7 @@
           <div><strong>Board miss:</strong> <span id="board-miss-rule">-5 x board bid</span></div>
           <div><strong>Hit bid:</strong> <span id="hit-rule">+3 x tricks</span></div>
           <div><strong>Under bid:</strong> <span id="under-rule">-3 x bid</span></div>
+          <div><strong>Over bid:</strong> <span id="over-rule">+1 x tricks</span></div>
         </div>
 
         <div class="players-header">

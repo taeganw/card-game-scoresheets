@@ -11,9 +11,10 @@ The home screen groups games by Drinking Game, Card Game, and Party Game. Up the
 - Board: exact all-tricks bid scores `5 x tricks`; missing it loses `5 x board bid`.
 - Exact bid: scores `3 x tricks`.
 - Under bid: loses `3 x bid`.
-- Over-bid behavior is configurable in setup.
+- Over bid: scores `1 x tricks`.
 - Each player has a running count of bids hit and bids missed under.
 - Board, board-miss, exact-bid, and under-bid point multipliers are configurable before play.
+- Made and missed boards play local sound effects when the round is saved.
 
 The default highest round leaves one card for trump. With two players and a 52-card deck, the highest round is 25 because each player gets 25 cards and one card is flipped for trump. The highest round is played twice: once up river and once down river.
 

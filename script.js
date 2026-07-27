@@ -27,7 +27,6 @@ const state = {
   playMode: "singles",
   deckSize: 52,
   maxCards: 17,
-  missMode: "under-only",
   boardPoints: 5,
   boardMissPoints: 5,
   hitPoints: 3,
@@ -51,7 +50,6 @@ const els = {
   playMode: document.querySelector("#play-mode"),
   deckSize: document.querySelector("#deck-size"),
   maxCards: document.querySelector("#max-cards"),
-  missMode: document.querySelector("#miss-mode"),
   boardPoints: document.querySelector("#board-points"),
   boardMissPoints: document.querySelector("#board-miss-points"),
   hitPoints: document.querySelector("#hit-points"),
@@ -61,6 +59,7 @@ const els = {
   boardMissRule: document.querySelector("#board-miss-rule"),
   hitRule: document.querySelector("#hit-rule"),
   underRule: document.querySelector("#under-rule"),
+  overRule: document.querySelector("#over-rule"),
   roundDirection: document.querySelector("#round-direction"),
   roundTitle: document.querySelector("#round-title"),
   dealerLine: document.querySelector("#dealer-line"),
@@ -75,6 +74,13 @@ const els = {
   celebrationCard: document.querySelector("#celebration-card"),
   wakeLockButton: document.querySelector("#wake-lock")
 };
+
+const sounds = typeof Audio === "function"
+  ? {
+      board: new Audio("assets/sounds/board-made.wav"),
+      miss: new Audio("assets/sounds/board-missed.wav")
+    }
+  : {};
 
 let celebrationTimer;
 let bannerTimer;
@@ -100,11 +106,6 @@ function bind() {
   });
 
   els.playMode.addEventListener("change", () => {
-    syncSettingsFromDom({ clampRounds: false });
-    render();
-  });
-
-  els.missMode.addEventListener("change", () => {
     syncSettingsFromDom({ clampRounds: false });
     render();
   });
@@ -228,9 +229,8 @@ function scoreRound(entry) {
     return entry.tricks === entry.bid ? state.boardPoints * entry.tricks : -state.boardMissPoints * entry.bid;
   }
   if (entry.tricks === entry.bid) return state.hitPoints * entry.tricks;
-  if (state.missMode === "zero") return 0;
-  if (state.missMode === "any-miss") return -state.underPoints * entry.bid;
-  return entry.tricks < entry.bid ? -state.underPoints * entry.bid : 0;
+  if (entry.tricks < entry.bid) return -state.underPoints * entry.bid;
+  return entry.tricks;
 }
 
 function render() {
@@ -238,7 +238,6 @@ function render() {
   els.deckSize.value = state.deckSize;
   els.maxCards.value = state.maxCards;
   els.maxCards.max = maxPossibleCards();
-  els.missMode.value = state.missMode;
   els.boardPoints.value = state.boardPoints;
   els.boardMissPoints.value = state.boardMissPoints;
   els.hitPoints.value = state.hitPoints;
@@ -337,8 +336,8 @@ function renderRoundEntry(round) {
     const team = state.playMode === "teams" ? `<span class="entry-team">Team ${escapeHtml(player.team)}</span>` : "";
     row.innerHTML = `
       <div class="entry-name">${escapeHtml(playerName(player, index))}${team}${player.id === currentDealerId() ? '<span class="dealer-badge">Dealer</span>' : ""}</div>
-      <label class="mini-field">Bid <input class="bid-input" type="number" min="0" max="${round.cards}" step="1" value="0"></label>
-      <label class="mini-field">Took <input class="tricks-input" type="number" min="0" max="${round.cards}" step="1" value="0"></label>
+      <label class="mini-field">Bid <input class="bid-input" type="number" min="0" max="${round.cards}" step="1" value="" placeholder="0" inputmode="numeric" enterkeyhint="next"></label>
+      <label class="mini-field">Took <input class="tricks-input" type="number" min="0" max="${round.cards}" step="1" value="" placeholder="0" inputmode="numeric" enterkeyhint="next"></label>
       <label class="board-toggle">Board <input class="board-input" type="checkbox"></label>
     `;
     row.querySelector(".board-input").addEventListener("change", (event) => {
@@ -346,10 +345,34 @@ function renderRoundEntry(round) {
       row.classList.toggle("board-armed", event.target.checked);
       updateTrickTotal(round);
     });
-    row.querySelectorAll("input").forEach((input) => input.addEventListener("input", () => updateTrickTotal(round)));
+    row.querySelectorAll(".bid-input, .tricks-input").forEach((input) => prepareScoreInput(input, round));
     els.roundEntry.append(row);
   });
   updateTrickTotal(round);
+}
+
+function prepareScoreInput(input, round) {
+  input.addEventListener("focus", () => {
+    if (input.value === "0") input.value = "";
+    input.select();
+  });
+  input.addEventListener("input", () => updateTrickTotal(round));
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const selector = input.classList.contains("bid-input") ? ".bid-input" : ".tricks-input";
+    const inputs = [...els.roundEntry.querySelectorAll(selector)];
+    const nextInput = inputs[inputs.indexOf(input) + 1];
+    if (nextInput) {
+      nextInput.focus();
+      return;
+    }
+    if (selector === ".bid-input") {
+      els.roundEntry.querySelector(".tricks-input")?.focus();
+    } else {
+      document.querySelector("#save-round").focus();
+    }
+  });
 }
 
 function renderTeamTotals() {
@@ -475,8 +498,16 @@ function buildRoundEvent(rows, previousScores, finished) {
 function showRoundEvent(event) {
   if (!event) return;
   if (event.type === "plain") return;
+  playEventSound(event.type);
   showBanner(event.banner, event.type);
   showCelebration(event);
+}
+
+function playEventSound(type) {
+  const sound = sounds[type === "miss" ? "miss" : type === "board" ? "board" : ""];
+  if (!sound) return;
+  sound.currentTime = 0;
+  sound.play().catch(() => {});
 }
 
 function showBanner(message, type) {
@@ -599,7 +630,6 @@ function syncSettingsFromDom({ clampRounds }) {
   state.playMode = els.playMode.value;
   state.deckSize = clamp(numberValue(els.deckSize, state.deckSize), 20, 108);
   state.maxCards = numberValue(els.maxCards, state.maxCards);
-  state.missMode = els.missMode.value;
   state.boardPoints = numberValue(els.boardPoints, state.boardPoints);
   state.boardMissPoints = numberValue(els.boardMissPoints, state.boardMissPoints);
   state.hitPoints = numberValue(els.hitPoints, state.hitPoints);
@@ -694,6 +724,7 @@ function renderScoringRules() {
   els.boardMissRule.textContent = `-${state.boardMissPoints} x board bid`;
   els.hitRule.textContent = `+${state.hitPoints} x tricks`;
   els.underRule.textContent = `-${state.underPoints} x bid`;
+  els.overRule.textContent = "+1 x tricks";
 }
 
 async function toggleWakeLock() {
