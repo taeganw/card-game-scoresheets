@@ -1,7 +1,7 @@
 {
-  "name": "River Scoresheets",
-  "short_name": "River Score",
-  "description": "Phone-friendly Up the River, Down the River scorekeeper.",
+  "name": "Game Scoresheets",
+  "short_name": "Scoresheets",
+  "description": "Phone-friendly scoresheets for card, drinking, and party games.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

@@ -25,6 +25,7 @@ const state = {
   selectedCategory: "",
   selectedGame: "",
   activeTab: "score",
+  setupTab: "rules",
   playMode: "singles",
   deckSize: 52,
   maxCards: 17,
@@ -45,6 +46,8 @@ const els = {
   gamePickerTitle: document.querySelector("#game-picker-title"),
   gameGrid: document.querySelector("#game-grid"),
   setupPanel: document.querySelector("#setup-panel"),
+  setupTabs: [...document.querySelectorAll(".setup-tab")],
+  setupPanels: [...document.querySelectorAll(".setup-panel-page")],
   gameShell: document.querySelector("#game-shell"),
   gameTabs: [...document.querySelectorAll(".game-tab")],
   gamePanels: [...document.querySelectorAll(".game-panel")],
@@ -112,6 +115,9 @@ function bind() {
   els.gameTabs.forEach((button) => {
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
   });
+  els.setupTabs.forEach((button) => {
+    button.addEventListener("click", () => setSetupTab(button.dataset.setupTab));
+  });
 
   els.playMode.addEventListener("change", () => {
     syncSettingsFromDom({ clampRounds: false });
@@ -171,6 +177,7 @@ function selectGame(gameId) {
   state.selectedGame = gameId;
   state.selectedCategory = "card";
   state.mode = "setup";
+  state.setupTab = "rules";
   save();
   render();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -191,6 +198,7 @@ function goHome() {
 function showSetup() {
   syncRoundEntries();
   state.mode = "setup";
+  state.setupTab = "rules";
   save();
   render();
 }
@@ -199,6 +207,7 @@ function resetGame() {
   if (!confirm("Clear this scoresheet and start over?")) return;
   state.mode = "setup";
   state.activeTab = "score";
+  state.setupTab = "rules";
   state.history = [];
   state.players = createDefaultPlayers();
   state.startingDealerId = "";
@@ -250,6 +259,7 @@ function scoreRound(entry) {
 }
 
 function render() {
+  document.body.classList.toggle("app-locked", ["home", "setup", "game"].includes(state.mode));
   document.body.classList.toggle("game-active", state.mode === "game");
   els.playMode.value = state.playMode;
   els.deckSize.value = state.deckSize;
@@ -267,9 +277,29 @@ function render() {
   els.gameShell.classList.toggle("hidden", state.mode !== "game");
   renderHome();
   renderPlayers();
+  renderSetupTabs();
   renderGameTabs();
   renderGame();
   save();
+}
+
+function setSetupTab(tab) {
+  state.setupTab = ["rules", "players"].includes(tab) ? tab : "rules";
+  save();
+  renderSetupTabs();
+}
+
+function renderSetupTabs() {
+  const setupTab = ["rules", "players"].includes(state.setupTab) ? state.setupTab : "rules";
+  state.setupTab = setupTab;
+  els.setupTabs.forEach((button) => {
+    const isActive = button.dataset.setupTab === setupTab;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+  els.setupPanels.forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.setupPanel === setupTab);
+  });
 }
 
 function renderHome() {
@@ -740,6 +770,7 @@ function load() {
     state.selectedCategory = state.selectedCategory || "";
     state.selectedGame = state.selectedGame || "";
     state.activeTab = ["score", "table", "stats", "rounds"].includes(state.activeTab) ? state.activeTab : "score";
+    state.setupTab = ["rules", "players"].includes(state.setupTab) ? state.setupTab : "rules";
     if (state.mode === "setup" && !state.selectedGame && !state.history.length) state.mode = "home";
     state.boardPoints = numberValue({ value: state.boardPoints }, 5);
     state.boardMissPoints = numberValue({ value: state.boardMissPoints }, 5);

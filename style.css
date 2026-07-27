@@ -39,7 +39,7 @@ body {
     var(--paper);
 }
 
-body.game-active {
+body.app-locked {
   overflow: hidden;
 }
 
@@ -72,7 +72,7 @@ button {
   padding: max(18px, env(safe-area-inset-top)) 14px max(28px, env(safe-area-inset-bottom));
 }
 
-.game-active .app {
+.app-locked .app {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100dvh;
@@ -282,6 +282,21 @@ h3 {
   gap: 14px;
 }
 
+.home-panel,
+.setup-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-locked .home-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.app-locked .setup-panel {
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
 .game-shell {
   min-height: 0;
 }
@@ -367,6 +382,8 @@ h3 {
 
 .game-picker {
   margin-top: 16px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .category-card,
@@ -485,6 +502,11 @@ button:focus-visible {
 .team-totals {
   display: grid;
   gap: 10px;
+}
+
+.player-list {
+  min-height: 0;
+  overflow: auto;
 }
 
 .players-header {
@@ -619,9 +641,9 @@ button:focus-visible {
   font-weight: 900;
 }
 
-.game-tabs {
+.game-tabs,
+.setup-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   min-width: 0;
   padding: 5px;
@@ -631,7 +653,16 @@ button:focus-visible {
   box-shadow: 0 8px 22px rgba(50, 38, 24, 0.08);
 }
 
-.game-tab {
+.game-tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.setup-tabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.game-tab,
+.setup-tab {
   min-width: 0;
   min-height: 44px;
   border: 0;
@@ -642,20 +673,28 @@ button:focus-visible {
   cursor: pointer;
 }
 
-.game-tab.active {
+.game-tab.active,
+.setup-tab.active {
   color: #fff;
   background: linear-gradient(135deg, var(--accent), var(--river-deep));
   box-shadow: 0 8px 18px rgba(15, 97, 120, 0.16);
 }
 
-.game-panel {
+.game-panel,
+.setup-panel-page {
   display: none;
   min-height: 0;
   overflow: hidden;
 }
 
-.game-panel.active {
+.game-panel.active,
+.setup-panel-page.active {
   display: grid;
+}
+
+.setup-panel-page.active {
+  align-content: start;
+  overflow: auto;
 }
 
 .entry-panel.game-panel.active {
@@ -1064,7 +1103,7 @@ button:focus-visible {
     padding-inline: 10px;
   }
 
-  .game-active .app {
+  .app-locked .app {
     padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
   }
 
@@ -1074,20 +1113,20 @@ button:focus-visible {
     padding-top: 10px;
   }
 
-  .game-active .hero {
+  .app-locked .hero {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px;
     padding: 0;
   }
 
-  .game-active .hero .eyebrow,
-  .game-active .hero .intro,
-  .game-active .river-scene {
+  .app-locked .hero .eyebrow,
+  .app-locked .hero .intro,
+  .app-locked .river-scene {
     display: none;
   }
 
-  .game-active .hero h1 {
+  .app-locked .hero h1 {
     margin: 0;
     font-size: 1.45rem;
     line-height: 1;
@@ -1100,7 +1139,7 @@ button:focus-visible {
     order: -1;
   }
 
-  .game-active .hero-actions {
+  .app-locked .hero-actions {
     order: 0;
     justify-self: auto;
   }
@@ -1135,7 +1174,7 @@ button:focus-visible {
 
   .category-card,
   .game-card {
-    padding: 15px;
+    padding: 12px;
   }
 
   .category-card {
@@ -1149,16 +1188,91 @@ button:focus-visible {
 
   .category-icon {
     grid-row: 1 / span 2;
-    width: 50px;
-    height: 50px;
+    width: 46px;
+    height: 46px;
+  }
+
+  .app-locked .home-panel .section-heading h2 {
+    font-size: 1.45rem;
+  }
+
+  .app-locked .home-panel {
+    gap: 8px;
+  }
+
+  .app-locked .category-grid {
+    gap: 8px;
+  }
+
+  .app-locked .category-card {
+    min-height: 82px;
+  }
+
+  .app-locked .category-card strong,
+  .app-locked .game-card strong {
+    font-size: 1rem;
+  }
+
+  .app-locked .category-card small,
+  .app-locked .game-card span {
+    font-size: 0.82rem;
   }
 
   .panel {
     padding: 15px;
   }
 
-  .game-active .panel {
+  .app-locked .panel {
     padding: 10px;
+  }
+
+  .app-locked .section-heading {
+    margin-bottom: 8px;
+  }
+
+  .app-locked .section-heading h2 {
+    font-size: 1.18rem;
+  }
+
+  .compact-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .compact-fields .field:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .compact-fields .field {
+    font-size: 0.82rem;
+  }
+
+  .compact-fields input,
+  .compact-fields select {
+    min-height: 46px;
+    padding: 9px 10px;
+    font-size: 1rem;
+  }
+
+  .setup-tabs {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .setup-tab {
+    min-height: 44px;
+  }
+
+  .setup-panel-page .score-rules {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 8px 0 0;
+    padding: 8px;
+    gap: 3px 8px;
+    font-size: 0.74rem;
+  }
+
+  .setup-panel-page .score-rules div:last-child {
+    grid-column: 1 / -1;
   }
 
   .field {
@@ -1203,7 +1317,35 @@ button:focus-visible {
   }
 
   .teams .player-row {
-    grid-template-columns: minmax(0, 1fr) 92px 92px 48px;
+    grid-template-columns: minmax(116px, 1fr) 72px 38px 34px;
+    gap: 5px;
+  }
+
+  .teams .player-name {
+    grid-column: auto;
+  }
+
+  .teams .dealer-select span {
+    display: none;
+  }
+
+  .teams .dealer-select input {
+    margin: 0;
+  }
+
+  .teams .team-select {
+    padding-inline: 7px;
+    font-size: 0.92rem;
+  }
+
+  .teams .dealer-select {
+    min-height: 48px;
+  }
+
+  .teams .remove-player {
+    width: 34px;
+    min-width: 34px;
+    padding: 0;
   }
 
   .dealer-select {
@@ -1245,10 +1387,6 @@ button:focus-visible {
   .game-tab {
     min-height: 46px;
     font-size: 0.88rem;
-  }
-
-  .game-active .section-heading {
-    margin-bottom: 8px;
   }
 
   .game-active .entry-panel h2,

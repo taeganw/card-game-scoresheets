@@ -1,12 +1,12 @@
-# River Scoresheets
+# Game Scoresheets
 
-A static, phone-first scoresheet for Up the River, Down the River.
+A static, phone-first scoresheet app for game night.
 
 Open `index.html` locally or publish the folder with GitHub Pages.
 
 The home screen groups games by Drinking Game, Card Game, and Party Game. Up the River, Down the River is available under Card Game.
 
-The in-game screen is organized into Score, Table, Stats, and Rounds tabs so the active game view stays inside one mobile viewport instead of becoming a long scrolling page.
+The app uses compact panels and tabs so home, setup, and active game screens stay inside one mobile viewport instead of becoming long scrolling pages.
 
 ## Current scoring
 
