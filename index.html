@@ -113,6 +113,10 @@
             <input id="board-points" type="number" min="0" max="50" step="1" value="5">
           </label>
           <label class="field">
+            <span>Board miss penalty per trick</span>
+            <input id="board-miss-points" type="number" min="0" max="50" step="1" value="5">
+          </label>
+          <label class="field">
             <span>Hit-bid points per trick</span>
             <input id="hit-points" type="number" min="0" max="50" step="1" value="3">
           </label>
@@ -124,6 +128,7 @@
 
         <div class="score-rules">
           <div><strong>Board:</strong> <span id="board-rule">+5 x tricks</span></div>
+          <div><strong>Board miss:</strong> <span id="board-miss-rule">-5 x board bid</span></div>
           <div><strong>Hit bid:</strong> <span id="hit-rule">+3 x tricks</span></div>
           <div><strong>Under bid:</strong> <span id="under-rule">-3 x bid</span></div>
         </div>
