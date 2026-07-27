@@ -69,6 +69,7 @@ const els = {
   scoreboard: document.querySelector("#scoreboard"),
   teamTotals: document.querySelector("#team-totals"),
   bidStats: document.querySelector("#bid-stats"),
+  startGameButton: document.querySelector("#start-game"),
   eventBanner: document.querySelector("#event-banner"),
   celebrationLayer: document.querySelector("#celebration-layer"),
   celebrationCard: document.querySelector("#celebration-card"),
@@ -132,15 +133,20 @@ function addPlayer() {
 }
 
 function startGame() {
+  const existingRoundCount = state.history.length;
   syncPlayersFromDom();
   syncSettingsFromDom({ clampRounds: true });
   if (state.players.length < 2) {
     els.entryMessage.textContent = "Add at least two players.";
     return;
   }
-  ensureStartingDealer();
+  if (!existingRoundCount) {
+    ensureStartingDealer();
+    state.history = [];
+  } else if (!state.players.some((player) => player.id === state.startingDealerId)) {
+    ensureStartingDealer();
+  }
   state.mode = "game";
-  state.history = [];
   save();
   render();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -243,6 +249,7 @@ function render() {
   els.hitPoints.value = state.hitPoints;
   els.underPoints.value = state.underPoints;
   els.roundPreview.textContent = `1 to ${state.maxCards} to 1`;
+  els.startGameButton.textContent = state.history.length ? "Save settings" : "Start scoring";
   renderScoringRules();
   els.homePanel.classList.toggle("hidden", state.mode !== "home");
   els.setupPanel.classList.toggle("hidden", state.mode !== "setup");
@@ -429,8 +436,10 @@ function renderScoreboard() {
     const dealerText = dealer ? `<span class="score-delta">Dealer: ${escapeHtml(playerName(dealer, dealerIndex))}</span>` : "";
     return `<tr><td>${index + 1}. ${round.cards}${dealerText}</td>${leaders.map(({ player }) => {
       const entry = entriesByPlayer[player.id];
+      if (!entry) return "<td>0<span class=\"score-delta\">not seated</span></td>";
+      const delta = scoreRound(entry);
       const label = entry.board ? "board" : `bid ${entry.bid}`;
-      return `<td>${entry.delta > 0 ? "+" : ""}${entry.delta}<span class="score-delta">${label}, took ${entry.tricks}</span></td>`;
+      return `<td>${delta > 0 ? "+" : ""}${delta}<span class="score-delta">${label}, took ${entry.tricks}</span></td>`;
     }).join("")}</tr>`;
   }).join("");
   const foot = `<tfoot><tr><th>Total</th>${leaders.map(({ player }) => `<td>${scores[player.id]}</td>`).join("")}</tr></tfoot>`;
@@ -586,7 +595,7 @@ function currentScores() {
   const totals = Object.fromEntries(state.players.map((player) => [player.id, 0]));
   state.history.forEach((round) => {
     round.entries.forEach((entry) => {
-      totals[entry.playerId] = (totals[entry.playerId] || 0) + entry.delta;
+      totals[entry.playerId] = (totals[entry.playerId] || 0) + scoreRound(entry);
     });
   });
   return totals;

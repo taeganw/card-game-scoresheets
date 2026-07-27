@@ -16,6 +16,8 @@ The home screen groups games by Drinking Game, Card Game, and Party Game. Up the
 - Board, board-miss, exact-bid, and under-bid point multipliers are configurable before play.
 - Made and missed boards play local sound effects when the round is saved.
 
+Settings can also be edited mid-game. Saved rounds keep their bids and tricks, and scores recalculate from the current point settings.
+
 The default highest round leaves one card for trump. With two players and a 52-card deck, the highest round is 25 because each player gets 25 cards and one card is flipped for trump. The highest round is played twice: once up river and once down river.
 
 Players should be entered in clockwise table order. Pick a starting dealer in setup, or the app randomly chooses one when scoring starts. Dealer rotates to the next player each round.
