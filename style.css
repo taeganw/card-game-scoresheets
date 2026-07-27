@@ -509,6 +509,13 @@ button:focus-visible {
   overflow: auto;
 }
 
+.round-entry {
+  min-height: 0;
+  overflow: auto;
+  align-content: start;
+  padding-right: 2px;
+}
+
 .players-header {
   margin: 4px 0 10px;
 }
@@ -764,16 +771,24 @@ button:focus-visible {
 }
 
 .entry-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
   margin-top: 12px;
   align-items: stretch;
+  flex: 0 0 auto;
 }
 
 .entry-footer .hint {
-  align-self: center;
+  align-self: start;
+  min-width: 0;
+  font-size: 0.8rem;
+  line-height: 1.25;
 }
 
 .entry-footer .primary-button {
-  width: min(190px, 46%);
+  width: 100%;
+  justify-self: stretch;
   margin-top: 0;
 }
 

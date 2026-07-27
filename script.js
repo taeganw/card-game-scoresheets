@@ -395,7 +395,7 @@ function renderRoundEntry(round) {
     document.querySelector("#save-round").disabled = true;
     return;
   }
-  document.querySelector("#save-round").disabled = false;
+  document.querySelector("#save-round").disabled = true;
 
   state.players.forEach((player, index) => {
     const row = document.createElement("div");
@@ -429,17 +429,24 @@ function prepareScoreInput(input, round) {
   input.addEventListener("keydown", (event) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
-    const selector = input.classList.contains("bid-input") ? ".bid-input" : ".tricks-input";
-    const inputs = [...els.roundEntry.querySelectorAll(selector)];
-    const nextInput = inputs[inputs.indexOf(input) + 1];
-    if (nextInput) {
-      nextInput.focus();
-      return;
-    }
-    if (selector === ".bid-input") {
+    if (input.classList.contains("bid-input")) {
+      const bids = [...els.roundEntry.querySelectorAll(".bid-input")];
+      const nextBid = bids[bids.indexOf(input) + 1];
+      if (nextBid) {
+        nextBid.focus();
+        return;
+      }
       els.roundEntry.querySelector(".tricks-input")?.focus();
     } else {
-      document.querySelector("#save-round").focus();
+      const tricks = [...els.roundEntry.querySelectorAll(".tricks-input")];
+      const nextTrick = tricks[tricks.indexOf(input) + 1];
+      if (nextTrick) {
+        nextTrick.focus();
+        return;
+      }
+      if (!document.querySelector("#save-round").disabled) {
+        document.querySelector("#save-round").focus();
+      }
     }
   });
 }
@@ -698,9 +705,11 @@ function currentBidStats() {
 
 function updateTrickTotal(round) {
   const total = [...els.roundEntry.querySelectorAll(".tricks-input")].reduce((sum, input) => sum + numberValue(input, 0), 0);
+  const roundIsBalanced = total === round.cards;
   els.trickTotal.textContent = `${total} / ${round.cards} tricks`;
-  els.trickTotal.style.borderColor = total === round.cards ? "rgba(31, 122, 107, 0.24)" : "rgba(182, 68, 53, 0.45)";
-  els.entryMessage.textContent = total === round.cards ? "Ready to save this round." : "Tricks taken should match the cards in this round.";
+  els.trickTotal.style.borderColor = roundIsBalanced ? "rgba(31, 122, 107, 0.24)" : "rgba(182, 68, 53, 0.45)";
+  els.entryMessage.textContent = roundIsBalanced ? "Ready to save this round." : "Took total must match round cards.";
+  document.querySelector("#save-round").disabled = !roundIsBalanced;
 }
 
 function syncPlayersFromDom() {
