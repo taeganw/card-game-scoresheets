@@ -831,6 +831,12 @@ button:focus-visible {
   border-color: rgba(31, 122, 107, 0.34);
 }
 
+.mexican-roll-card.shaking {
+  border-color: rgba(64, 120, 188, 0.42);
+  box-shadow: 0 0 0 3px rgba(64, 120, 188, 0.12);
+  animation: cup-shake 140ms linear infinite;
+}
+
 .mexican-status-card strong,
 .mexican-roll-card strong {
   font-size: 1rem;
@@ -872,6 +878,25 @@ button:focus-visible {
   color: var(--ink);
   font-size: 2.55rem;
   line-height: 1;
+}
+
+.mexican-roll-card.shaking .die-face {
+  animation: die-bounce 110ms ease-in-out infinite alternate;
+}
+
+.mexican-roll-card.shaking .die-face:nth-child(2) {
+  animation-delay: 40ms;
+}
+
+@keyframes cup-shake {
+  0% { transform: translate3d(-2px, 0, 0) rotate(-1.5deg); }
+  50% { transform: translate3d(2px, -1px, 0) rotate(1.5deg); }
+  100% { transform: translate3d(-1px, 1px, 0) rotate(-1deg); }
+}
+
+@keyframes die-bounce {
+  0% { transform: translateY(-2px) rotate(-3deg) scale(1.02); }
+  100% { transform: translateY(2px) rotate(3deg) scale(0.98); }
 }
 
 .team-totals {

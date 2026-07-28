@@ -105,6 +105,8 @@ let pendingShakeTimeout;
 let rollingFromMotion = false;
 let audioContext;
 let rattleNodes = null;
+let shakeVisualTimer;
+let shakeVisualStep = 0;
 
 load();
 bind();
@@ -550,10 +552,10 @@ function renderMexicanCupPanel(lives, winner) {
       </div>
     `
     : `
-      <div class="mexican-roll-card">
+      <div class="mexican-roll-card ${state.mexican.shaking ? "shaking" : ""}">
         <div class="dice-row">
-          <span class="die-face">?</span>
-          <span class="die-face">?</span>
+          <span class="die-face">${state.mexican.shaking ? "⚄" : "?"}</span>
+          <span class="die-face">${state.mexican.shaking ? "⚁" : "?"}</span>
         </div>
         <strong>Ready to roll</strong>
         <span id="mexican-motion-status">${escapeHtml(mexicanMotionStatusText())}</span>
@@ -808,6 +810,8 @@ function updateMexicanMotionStatus() {
   if (pill) pill.textContent = mexicanPillText();
   const status = document.querySelector("#mexican-motion-status");
   if (status) status.textContent = mexicanMotionStatusText();
+  const rollCard = document.querySelector(".mexican-roll-card");
+  if (rollCard) rollCard.classList.toggle("shaking", state.mexican.shaking);
 }
 
 async function enableMexicanMotion() {
@@ -870,7 +874,7 @@ function handleMexicanMotion(event) {
   const accel = event.acceleration || {};
   const magnitude = Math.abs(accel.x || 0) + Math.abs(accel.y || 0) + Math.abs(accel.z || 0);
   state.mexican.lastMotionLevel = magnitude;
-  if (!state.mexican.faceDown || magnitude < 12) {
+  if (!state.mexican.faceDown || magnitude < 15) {
     if (!rollingFromMotion) updateMexicanMotionStatus();
     return;
   }
@@ -878,6 +882,7 @@ function handleMexicanMotion(event) {
   state.mexican.motionReady = true;
   state.mexican.shaking = true;
   rollingFromMotion = true;
+  startMexicanShakeVisual();
   startRattle();
   updateMexicanMotionStatus();
   window.clearTimeout(pendingShakeTimeout);
@@ -888,6 +893,7 @@ function finishMexicanMotionRoll() {
   if (!rollingFromMotion || !isMexicanGame()) return;
   rollingFromMotion = false;
   state.mexican.shaking = false;
+  stopMexicanShakeVisual();
   stopRattle();
   state.mexican.currentRoll = mexicanRoll();
   state.mexican.peeked = false;
@@ -900,6 +906,7 @@ function manualRollMexican() {
   if (state.mexican.currentRoll) return;
   stopRattle();
   state.mexican.shaking = false;
+  stopMexicanShakeVisual();
   state.mexican.motionReady = true;
   state.mexican.currentRoll = mexicanRoll();
   state.mexican.peeked = false;
@@ -976,6 +983,7 @@ function callMexicanBS() {
   const loser = playerById(loserId);
   const loserIndex = playerIndexById(loserId);
   const banner = `${playerName(loser, loserIndex)} loses ${loss} life${loss === 1 ? "" : "s"}.`;
+  playMexicanCallSound(!claimWasTrue);
   showBanner(banner, claimWasTrue ? "miss" : "board");
   if (mexicanWinner(currentLives())) {
     const winner = mexicanWinner(currentLives());
@@ -993,6 +1001,68 @@ function callMexicanBS() {
       confetti: !claimWasTrue
     });
   }
+}
+
+function startMexicanShakeVisual() {
+  window.clearInterval(shakeVisualTimer);
+  shakeVisualStep = 0;
+  const updateFaces = () => {
+    const faces = [...document.querySelectorAll(".mexican-roll-card .die-face")];
+    if (!faces.length) return;
+    const left = (shakeVisualStep % 6) + 1;
+    const right = ((shakeVisualStep + 3) % 6) + 1;
+    faces[0].textContent = diceFace(left);
+    if (faces[1]) faces[1].textContent = diceFace(right);
+    shakeVisualStep += 1;
+  };
+  updateFaces();
+  shakeVisualTimer = window.setInterval(updateFaces, 75);
+}
+
+function stopMexicanShakeVisual() {
+  window.clearInterval(shakeVisualTimer);
+  shakeVisualTimer = null;
+}
+
+function playMexicanCallSound(correctCall) {
+  const Context = window.AudioContext || window.webkitAudioContext;
+  if (!Context) return;
+  audioContext = audioContext || new Context();
+  if (audioContext.state === "suspended") {
+    audioContext.resume().catch(() => {});
+  }
+  const now = audioContext.currentTime;
+  const gain = audioContext.createGain();
+  gain.connect(audioContext.destination);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(correctCall ? 0.18 : 0.16, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + (correctCall ? 0.22 : 0.26));
+
+  const oscA = audioContext.createOscillator();
+  const oscB = audioContext.createOscillator();
+  oscA.type = correctCall ? "square" : "sawtooth";
+  oscB.type = correctCall ? "triangle" : "square";
+  oscA.frequency.setValueAtTime(correctCall ? 880 : 220, now);
+  oscB.frequency.setValueAtTime(correctCall ? 1320 : 150, now);
+  if (correctCall) {
+    oscA.frequency.linearRampToValueAtTime(1175, now + 0.18);
+    oscB.frequency.linearRampToValueAtTime(1760, now + 0.18);
+  } else {
+    oscA.frequency.linearRampToValueAtTime(160, now + 0.22);
+    oscB.frequency.linearRampToValueAtTime(110, now + 0.22);
+  }
+
+  const filter = audioContext.createBiquadFilter();
+  filter.type = correctCall ? "highpass" : "lowpass";
+  filter.frequency.value = correctCall ? 720 : 780;
+
+  oscA.connect(filter);
+  oscB.connect(filter);
+  filter.connect(gain);
+  oscA.start(now);
+  oscB.start(now);
+  oscA.stop(now + (correctCall ? 0.2 : 0.24));
+  oscB.stop(now + (correctCall ? 0.2 : 0.24));
 }
 
 function startRattle() {
