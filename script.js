@@ -647,7 +647,10 @@ function createMexicanState() {
     faceDown: false,
     flatAngle: false,
     shaking: false,
-    motionReady: false
+    motionReady: false,
+    motionSeen: false,
+    lastMotionLevel: 0,
+    lastGravityZ: 0
   };
 }
 
@@ -790,8 +793,9 @@ function diceFace(value) {
 function mexicanPillText() {
   if (motionPermissionState === "granted") {
     if (state.mexican.shaking) return "Shaking";
-    if (state.mexican.faceDown) return "Face down";
-    return "Motion on";
+    if (state.mexican.faceDown) return "Armed";
+    if (state.mexican.motionSeen) return "Motion on";
+    return "Waiting";
   }
   if (motionPermissionState === "unsupported") return "Manual";
   if (motionPermissionState === "denied") return "Motion off";
@@ -802,9 +806,10 @@ function mexicanMotionStatusText() {
   if (motionPermissionState === "unsupported") return "Motion is not available on this phone. Use manual roll.";
   if (motionPermissionState === "denied") return "Motion permission is blocked. Use manual roll or re-enable motion in the browser.";
   if (motionPermissionState !== "granted") return "Enable motion to shake-roll, or use manual roll.";
+  if (!state.mexican.motionSeen) return "Motion enabled. Put the phone flat on the table and tap it once to wake the sensors.";
   if (state.mexican.shaking) return "Rolling...";
-  if (state.mexican.faceDown) return "Face down detected. Shake on the table to roll.";
-  return "Place the phone face down on the table to arm shake-roll.";
+  if (state.mexican.faceDown) return "Phone is flat on the table. Shake or tap it against the table to roll.";
+  return "Lay the phone flat on the table, screen up or down, then shake or tap it against the table.";
 }
 
 function updateMexicanMotionStatus() {
@@ -833,11 +838,15 @@ async function requestMexicanMotionPermission() {
     return false;
   }
   try {
+    let motionGranted = true;
+    let orientationGranted = true;
     if (typeof DeviceMotionEvent.requestPermission === "function") {
-      motionPermissionState = await DeviceMotionEvent.requestPermission();
-    } else {
-      motionPermissionState = "granted";
+      motionGranted = await DeviceMotionEvent.requestPermission() === "granted";
     }
+    if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+      orientationGranted = await DeviceOrientationEvent.requestPermission() === "granted";
+    }
+    motionPermissionState = motionGranted || orientationGranted ? "granted" : "denied";
   } catch {
     motionPermissionState = "denied";
   }
@@ -853,18 +862,25 @@ function ensureMotionListeners() {
 
 function handleMexicanOrientation(event) {
   if (!isMexicanGame()) return;
-  state.mexican.flatAngle = Math.abs(event.beta || 0) < 25 && Math.abs(event.gamma || 0) < 25;
+  const beta = Number.isFinite(event.beta) ? event.beta : 0;
+  const gamma = Number.isFinite(event.gamma) ? event.gamma : 0;
+  state.mexican.flatAngle = Math.abs(beta) < 40 && Math.abs(gamma) < 40;
+  state.mexican.motionSeen = true;
+  updateMexicanMotionStatus();
 }
 
 function handleMexicanMotion(event) {
   if (!isMexicanGame() || state.mode !== "game" || state.mexican.pendingClaim || mexicanWinner()) return;
   const gravity = event.accelerationIncludingGravity || {};
   const z = Number.isFinite(gravity.z) ? gravity.z : 0;
-  state.mexican.faceDown = state.mexican.flatAngle && z < -6;
+  state.mexican.lastGravityZ = z;
+  state.mexican.motionSeen = true;
+  state.mexican.faceDown = state.mexican.flatAngle || Math.abs(z) > 7;
 
   const accel = event.acceleration || {};
   const magnitude = Math.abs(accel.x || 0) + Math.abs(accel.y || 0) + Math.abs(accel.z || 0);
-  if (!state.mexican.faceDown || magnitude < 18) {
+  state.mexican.lastMotionLevel = magnitude;
+  if (!state.mexican.faceDown || magnitude < 12) {
     if (!rollingFromMotion) updateMexicanMotionStatus();
     return;
   }
