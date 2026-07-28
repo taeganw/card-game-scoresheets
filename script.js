@@ -426,25 +426,32 @@ function renderGame() {
 }
 
 function setActiveTab(tab) {
-  state.activeTab = ["score", "table", "stats", "rounds"].includes(tab) ? tab : "score";
+  const allowedTabs = isMexicanGame() ? ["score", "table", "rounds"] : ["score", "table", "stats", "rounds"];
+  state.activeTab = allowedTabs.includes(tab) ? tab : "score";
   save();
   renderGameTabs();
 }
 
 function renderGameTabs() {
-  const activeTab = ["score", "table", "stats", "rounds"].includes(state.activeTab) ? state.activeTab : "score";
+  const allowedTabs = isMexicanGame() ? ["score", "table", "rounds"] : ["score", "table", "stats", "rounds"];
+  const activeTab = allowedTabs.includes(state.activeTab) ? state.activeTab : "score";
   state.activeTab = activeTab;
   const labels = isMexicanGame()
-    ? { score: "Cup", table: "Lives", stats: "Ranks", rounds: "History" }
+    ? { score: "Cup", table: "Lives", rounds: "History" }
     : { score: "Score", table: "Table", stats: "Stats", rounds: "Rounds" };
   els.gameTabs.forEach((button) => {
+    const visible = allowedTabs.includes(button.dataset.tab);
+    button.classList.toggle("hidden", !visible);
+    if (!visible) return;
     const isActive = button.dataset.tab === activeTab;
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-selected", String(isActive));
     button.textContent = labels[button.dataset.tab];
   });
   els.gamePanels.forEach((panel) => {
-    panel.classList.toggle("active", panel.dataset.tabPanel === activeTab);
+    const visible = allowedTabs.includes(panel.dataset.tabPanel);
+    panel.classList.toggle("hidden", !visible);
+    panel.classList.toggle("active", visible && panel.dataset.tabPanel === activeTab);
   });
 }
 
@@ -482,7 +489,6 @@ function renderMexicanGame() {
 
   renderMexicanCupPanel(lives, winner);
   renderMexicanLivesPanel(lives);
-  renderMexicanRanksPanel();
   renderMexicanHistoryPanel(lives);
 }
 
@@ -564,8 +570,8 @@ function renderMexicanCupPanel(lives, winner) {
       ${rollCard}
       <div class="mexican-actions-grid">
         ${motionButton}
-        <button class="secondary-button" type="button" id="mexican-manual-roll">${roll ? "Re-roll" : "Manual roll"}</button>
-        <button class="secondary-button" type="button" id="mexican-peek" ${roll ? "" : "disabled"}>${state.mexican.peeked ? "Hide" : "Peek"}</button>
+        <button class="secondary-button" type="button" id="mexican-manual-roll" ${roll ? "disabled" : ""}>Roll</button>
+        <button class="secondary-button" type="button" id="mexican-peek" ${roll && !state.mexican.peeked ? "" : "disabled"}>Peek</button>
       </div>
       <label class="field">
         <span>Announced claim</span>
@@ -589,7 +595,7 @@ function renderMexicanCupPanel(lives, winner) {
     if (claimSelect) claimSelect.value = state.mexican.claimCode;
   }
   els.entryMessage.textContent = roll
-    ? state.mexican.peeked ? "Choose the claim you want to pass." : "Peek privately before you pass the claim."
+    ? state.mexican.peeked ? "Choose the claim you want to pass." : "You get one private peek before you pass the claim."
     : "Face the phone down and shake on the table, or use manual roll.";
   updateMexicanMotionStatus();
 }
@@ -606,22 +612,6 @@ function renderMexicanLivesPanel(lives) {
       <b>${remaining}</b>
     </div>
   `).join("");
-}
-
-function renderMexicanRanksPanel() {
-  const ranks = mexicanClaimOptions().slice().reverse();
-  els.bidStats.innerHTML = `
-    <div class="stat-card mexican-stat-card">
-      <strong>Order</strong>
-      <span>Regular numbers, then doubles, then Mexican.</span>
-    </div>
-    ${ranks.map((rank) => `
-      <div class="stat-card mexican-rank-card">
-        <strong>${escapeHtml(rank.label)}</strong>
-        <span>${escapeHtml(rank.name)}</span>
-      </div>
-    `).join("")}
-  `;
 }
 
 function renderMexicanHistoryPanel(lives) {
@@ -870,7 +860,7 @@ function handleMexicanOrientation(event) {
 }
 
 function handleMexicanMotion(event) {
-  if (!isMexicanGame() || state.mode !== "game" || state.mexican.pendingClaim || mexicanWinner()) return;
+  if (!isMexicanGame() || state.mode !== "game" || state.mexican.pendingClaim || state.mexican.currentRoll || mexicanWinner()) return;
   const gravity = event.accelerationIncludingGravity || {};
   const z = Number.isFinite(gravity.z) ? gravity.z : 0;
   state.mexican.lastGravityZ = z;
@@ -907,6 +897,7 @@ function finishMexicanMotionRoll() {
 }
 
 function manualRollMexican() {
+  if (state.mexican.currentRoll) return;
   stopRattle();
   state.mexican.shaking = false;
   state.mexican.motionReady = true;
@@ -918,8 +909,8 @@ function manualRollMexican() {
 }
 
 function toggleMexicanPeek() {
-  if (!state.mexican.currentRoll) return;
-  state.mexican.peeked = !state.mexican.peeked;
+  if (!state.mexican.currentRoll || state.mexican.peeked) return;
+  state.mexican.peeked = true;
   save();
   render();
 }
@@ -947,9 +938,7 @@ function passMexicanClaim() {
 
 function acceptMexicanClaim() {
   if (!state.mexican.pendingClaim) return;
-  state.mexican.pendingClaim = null;
-  state.mexican.currentRoll = null;
-  state.mexican.peeked = false;
+  resetMexicanRound();
   save();
   render();
 }
