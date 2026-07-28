@@ -1025,10 +1025,10 @@ function startRattle() {
   cupResonance.gain.value = 7;
 
   const masterGain = audioContext.createGain();
-  masterGain.gain.value = 0.075;
+  masterGain.gain.value = 0.12;
 
   const directGain = audioContext.createGain();
-  directGain.gain.value = 0.024;
+  directGain.gain.value = 0.04;
 
   const wobble = audioContext.createOscillator();
   wobble.type = "triangle";
@@ -1062,7 +1062,7 @@ function startRattle() {
 
     const impactGain = audioContext.createGain();
     impactGain.gain.setValueAtTime(0.0001, now);
-    impactGain.gain.linearRampToValueAtTime(0.18 + Math.random() * 0.05, now + 0.01);
+    impactGain.gain.linearRampToValueAtTime(0.28 + Math.random() * 0.08, now + 0.01);
     impactGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08 + Math.random() * 0.05);
 
     impactSource.playbackRate.value = 1.2 + Math.random() * 0.9;
