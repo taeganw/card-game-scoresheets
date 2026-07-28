@@ -1025,7 +1025,10 @@ function startRattle() {
   cupResonance.gain.value = 7;
 
   const masterGain = audioContext.createGain();
-  masterGain.gain.value = 0.02;
+  masterGain.gain.value = 0.075;
+
+  const directGain = audioContext.createGain();
+  directGain.gain.value = 0.024;
 
   const wobble = audioContext.createOscillator();
   wobble.type = "triangle";
@@ -1038,6 +1041,8 @@ function startRattle() {
   rumbleFilter.connect(cupResonance);
   cupResonance.connect(masterGain);
   masterGain.connect(audioContext.destination);
+  rumbleFilter.connect(directGain);
+  directGain.connect(audioContext.destination);
   wobble.connect(wobbleDepth);
   wobbleDepth.connect(rumbleFilter.frequency);
 
@@ -1057,7 +1062,7 @@ function startRattle() {
 
     const impactGain = audioContext.createGain();
     impactGain.gain.setValueAtTime(0.0001, now);
-    impactGain.gain.linearRampToValueAtTime(0.09 + Math.random() * 0.03, now + 0.01);
+    impactGain.gain.linearRampToValueAtTime(0.18 + Math.random() * 0.05, now + 0.01);
     impactGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08 + Math.random() * 0.05);
 
     impactSource.playbackRate.value = 1.2 + Math.random() * 0.9;
@@ -1068,7 +1073,7 @@ function startRattle() {
     impactSource.stop(now + 0.12);
   }, 55 + Math.floor(Math.random() * 25));
 
-  rattleNodes = { source, rumbleFilter, cupResonance, masterGain, wobble, wobbleDepth, impactTimer };
+  rattleNodes = { source, rumbleFilter, cupResonance, masterGain, directGain, wobble, wobbleDepth, impactTimer };
 }
 
 function stopRattle() {
@@ -1088,6 +1093,7 @@ function stopRattle() {
   rattleNodes.rumbleFilter.disconnect();
   rattleNodes.cupResonance.disconnect();
   rattleNodes.masterGain.disconnect();
+  rattleNodes.directGain.disconnect();
   rattleNodes.wobble.disconnect();
   rattleNodes.wobbleDepth.disconnect();
   rattleNodes = null;
