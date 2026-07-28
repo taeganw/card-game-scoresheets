@@ -953,6 +953,10 @@ function callMexicanBS() {
   const claimWasTrue = actualIndex >= claimIndex;
   const loserId = claimWasTrue ? callerId : pending.rollerId;
   const loss = pending.actual.isMexican ? 2 : 1;
+  const livesAfterLoss = currentLives();
+  livesAfterLoss[loserId] = Math.max(0, (livesAfterLoss[loserId] || 0) - loss);
+  const nextPlayerBaseId = claimWasTrue ? callerId : pending.rollerId;
+  const nextStarter = nextAlivePlayer(nextPlayerBaseId, livesAfterLoss)?.id || "";
 
   state.history.push({
     rollerId: pending.rollerId,
@@ -961,11 +965,9 @@ function callMexicanBS() {
     loss,
     claimedLabel: pending.claimed.label,
     actualLabel: pending.actual.label,
-    nextPlayerId: loserId
+    nextPlayerId: nextStarter
   });
 
-  const lives = currentLives();
-  const nextStarter = (lives[loserId] || 0) > 0 ? loserId : nextAlivePlayer(loserId, lives)?.id || "";
   state.mexican.activePlayerId = nextStarter;
   resetMexicanRound();
   save();
