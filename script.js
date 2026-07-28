@@ -1002,11 +1002,11 @@ function startRattle() {
   if (audioContext.state === "suspended") {
     audioContext.resume().catch(() => {});
   }
-  const buffer = audioContext.createBuffer(1, Math.floor(audioContext.sampleRate * 0.22), audioContext.sampleRate);
+  const buffer = audioContext.createBuffer(1, Math.floor(audioContext.sampleRate * 0.12), audioContext.sampleRate);
   const data = buffer.getChannelData(0);
   for (let index = 0; index < data.length; index += 1) {
     const decay = 1 - index / data.length;
-    data[index] = (Math.random() * 2 - 1) * 0.18 * decay;
+    data[index] = (Math.random() * 2 - 1) * 0.24 * decay;
   }
 
   const source = audioContext.createBufferSource();
@@ -1015,27 +1015,27 @@ function startRattle() {
 
   const rumbleFilter = audioContext.createBiquadFilter();
   rumbleFilter.type = "bandpass";
-  rumbleFilter.frequency.value = 520;
-  rumbleFilter.Q.value = 1.2;
+  rumbleFilter.frequency.value = 1100;
+  rumbleFilter.Q.value = 1.8;
 
   const cupResonance = audioContext.createBiquadFilter();
   cupResonance.type = "peaking";
-  cupResonance.frequency.value = 1240;
-  cupResonance.Q.value = 2.6;
-  cupResonance.gain.value = 7;
+  cupResonance.frequency.value = 2350;
+  cupResonance.Q.value = 3.4;
+  cupResonance.gain.value = 10;
 
   const masterGain = audioContext.createGain();
-  masterGain.gain.value = 0.12;
+  masterGain.gain.value = 0.18;
 
   const directGain = audioContext.createGain();
-  directGain.gain.value = 0.04;
+  directGain.gain.value = 0.07;
 
   const wobble = audioContext.createOscillator();
-  wobble.type = "triangle";
-  wobble.frequency.value = 14;
+  wobble.type = "square";
+  wobble.frequency.value = 20;
 
   const wobbleDepth = audioContext.createGain();
-  wobbleDepth.gain.value = 160;
+  wobbleDepth.gain.value = 240;
 
   source.connect(rumbleFilter);
   rumbleFilter.connect(cupResonance);
@@ -1057,21 +1057,21 @@ function startRattle() {
 
     const impactFilter = audioContext.createBiquadFilter();
     impactFilter.type = "bandpass";
-    impactFilter.frequency.value = 1200 + Math.random() * 1400;
-    impactFilter.Q.value = 3.2;
+    impactFilter.frequency.value = 2200 + Math.random() * 2200;
+    impactFilter.Q.value = 4.4;
 
     const impactGain = audioContext.createGain();
     impactGain.gain.setValueAtTime(0.0001, now);
-    impactGain.gain.linearRampToValueAtTime(0.28 + Math.random() * 0.08, now + 0.01);
-    impactGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08 + Math.random() * 0.05);
+    impactGain.gain.linearRampToValueAtTime(0.42 + Math.random() * 0.12, now + 0.004);
+    impactGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04 + Math.random() * 0.03);
 
-    impactSource.playbackRate.value = 1.2 + Math.random() * 0.9;
+    impactSource.playbackRate.value = 1.8 + Math.random() * 1.4;
     impactSource.connect(impactFilter);
     impactFilter.connect(impactGain);
     impactGain.connect(masterGain);
     impactSource.start(now);
-    impactSource.stop(now + 0.12);
-  }, 55 + Math.floor(Math.random() * 25));
+    impactSource.stop(now + 0.065);
+  }, 38 + Math.floor(Math.random() * 18));
 
   rattleNodes = { source, rumbleFilter, cupResonance, masterGain, directGain, wobble, wobbleDepth, impactTimer };
 }
