@@ -3,7 +3,7 @@ const GAME_CATEGORIES = {
   drinking: {
     title: "Drinking Games",
     games: [
-      { id: "coming-drinking", name: "Drinking games", description: "Penalty presets and party modes are coming soon.", enabled: false }
+      { id: "mexican", name: "Mexican", description: "Shake to roll, bluff the call, and track lives around the table.", enabled: true }
     ]
   },
   card: {
@@ -35,7 +35,8 @@ const state = {
   underPoints: 3,
   startingDealerId: "",
   players: createDefaultPlayers(),
-  history: []
+  history: [],
+  mexican: createMexicanState()
 };
 
 const els = {
@@ -66,6 +67,9 @@ const els = {
   hitRule: document.querySelector("#hit-rule"),
   underRule: document.querySelector("#under-rule"),
   overRule: document.querySelector("#over-rule"),
+  riverRulesPanel: document.querySelector("#river-rules-panel"),
+  mexicanRulesPanel: document.querySelector("#mexican-rules-panel"),
+  playersHint: document.querySelector("#players-hint"),
   roundDirection: document.querySelector("#round-direction"),
   roundTitle: document.querySelector("#round-title"),
   dealerLine: document.querySelector("#dealer-line"),
@@ -89,11 +93,18 @@ const sounds = typeof Audio === "function"
       miss: new Audio("assets/sounds/board-missed.wav")
     }
   : {};
+const MEXICAN_RANKS = buildMexicanRankLadder();
 
 let celebrationTimer;
 let bannerTimer;
 let wakeLockSentinel;
 let wakeLockRequested = false;
+let motionListening = false;
+let motionPermissionState = "prompt";
+let pendingShakeTimeout;
+let rollingFromMotion = false;
+let audioContext;
+let rattleNodes = null;
 
 load();
 bind();
@@ -134,30 +145,52 @@ function bind() {
   });
 }
 
+function isRiverGame() {
+  return state.selectedGame === "river";
+}
+
+function isMexicanGame() {
+  return state.selectedGame === "mexican";
+}
+
 function addPlayer() {
   state.players.push({
     id: makeId(),
     name: "",
     team: state.players.length % 2 === 0 ? "A" : "B"
   });
-  state.maxCards = maxPossibleCards();
+  if (isRiverGame()) state.maxCards = maxPossibleCards();
   save();
   render();
 }
 
 function startGame() {
-  const existingRoundCount = state.history.length;
   syncPlayersFromDom();
-  syncSettingsFromDom({ clampRounds: true });
   if (state.players.length < 2) {
     els.entryMessage.textContent = "Add at least two players.";
     return;
   }
-  if (!existingRoundCount) {
-    ensureStartingDealer();
-    state.history = [];
-  } else if (!state.players.some((player) => player.id === state.startingDealerId)) {
-    ensureStartingDealer();
+  if (isRiverGame()) {
+    const existingRoundCount = state.history.length;
+    syncSettingsFromDom({ clampRounds: true });
+    if (!existingRoundCount) {
+      ensureStartingDealer();
+      state.history = [];
+    } else if (!state.players.some((player) => player.id === state.startingDealerId)) {
+      ensureStartingDealer();
+    }
+  } else if (isMexicanGame()) {
+    state.playMode = "singles";
+    if (!state.history.length) {
+      ensureStartingDealer();
+      resetMexicanRound();
+      state.mexican.activePlayerId = state.startingDealerId;
+      state.mexican.motionReady = false;
+      state.history = [];
+    } else if (!alivePlayers().some((player) => player.id === state.mexican.activePlayerId)) {
+      ensureStartingDealer();
+      state.mexican.activePlayerId = firstAlivePlayerId() || state.startingDealerId;
+    }
   }
   state.mode = "game";
   state.activeTab = "score";
@@ -173,9 +206,13 @@ function selectCategory(category) {
 }
 
 function selectGame(gameId) {
-  if (gameId !== "river") return;
+  if (!["river", "mexican"].includes(gameId)) return;
   state.selectedGame = gameId;
-  state.selectedCategory = "card";
+  state.selectedCategory = gameId === "mexican" ? "drinking" : "card";
+  if (isMexicanGame()) {
+    state.playMode = "singles";
+    state.mexican = createMexicanState();
+  }
   state.mode = "setup";
   state.setupTab = "rules";
   save();
@@ -190,6 +227,7 @@ function goHome() {
   state.selectedGame = "";
   state.activeTab = "score";
   state.history = [];
+  state.mexican = createMexicanState();
   save();
   render();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -212,17 +250,25 @@ function resetGame() {
   state.players = createDefaultPlayers();
   state.startingDealerId = "";
   state.maxCards = maxPossibleCards();
+  state.mexican = createMexicanState();
   save();
   render();
 }
 
 function undoRound() {
+  if (isMexicanGame() && !state.history.length) return;
   state.history.pop();
+  if (isMexicanGame()) {
+    const loser = state.history.length ? state.history[state.history.length - 1].nextPlayerId : state.startingDealerId;
+    state.mexican.activePlayerId = loser || firstAlivePlayerId();
+    resetMexicanRound();
+  }
   save();
   render();
 }
 
 function saveRound() {
+  if (!isRiverGame()) return;
   const round = currentRound();
   const rows = [...els.roundEntry.querySelectorAll(".entry-row")].map((row) => {
     const playerId = row.dataset.playerId;
@@ -261,20 +307,25 @@ function scoreRound(entry) {
 function render() {
   document.body.classList.toggle("app-locked", ["home", "setup", "game"].includes(state.mode));
   document.body.classList.toggle("game-active", state.mode === "game");
-  els.playMode.value = state.playMode;
-  els.deckSize.value = state.deckSize;
-  els.maxCards.value = state.maxCards;
-  els.maxCards.max = maxPossibleCards();
-  els.boardPoints.value = state.boardPoints;
-  els.boardMissPoints.value = state.boardMissPoints;
-  els.hitPoints.value = state.hitPoints;
-  els.underPoints.value = state.underPoints;
-  els.roundPreview.textContent = `1 to ${state.maxCards} to 1`;
-  els.startGameButton.textContent = state.history.length ? "Save settings" : "Start scoring";
-  renderScoringRules();
+  if (isRiverGame()) {
+    els.playMode.value = state.playMode;
+    els.deckSize.value = state.deckSize;
+    els.maxCards.value = state.maxCards;
+    els.maxCards.max = maxPossibleCards();
+    els.boardPoints.value = state.boardPoints;
+    els.boardMissPoints.value = state.boardMissPoints;
+    els.hitPoints.value = state.hitPoints;
+    els.underPoints.value = state.underPoints;
+    els.roundPreview.textContent = `1 to ${state.maxCards} to 1`;
+    renderScoringRules();
+  } else if (isMexicanGame()) {
+    els.roundPreview.textContent = "3 lives";
+  }
+  els.startGameButton.textContent = state.history.length ? "Save settings" : "Start game";
   els.homePanel.classList.toggle("hidden", state.mode !== "home");
   els.setupPanel.classList.toggle("hidden", state.mode !== "setup");
   els.gameShell.classList.toggle("hidden", state.mode !== "game");
+  renderSetupMode();
   renderHome();
   renderPlayers();
   renderSetupTabs();
@@ -338,6 +389,7 @@ function renderPlayers() {
     row.querySelector(".player-name").placeholder = `Player ${index + 1}`;
     row.querySelector(".team-select").value = player.team;
     row.querySelector(".dealer-input").checked = player.id === state.startingDealerId;
+    row.querySelector(".dealer-select span").textContent = isMexicanGame() ? "Start" : "Dealer";
     row.querySelector(".player-name").addEventListener("input", syncPlayersFromDom);
     row.querySelector(".team-select").addEventListener("change", syncPlayersFromDom);
     row.querySelector(".dealer-input").addEventListener("change", () => {
@@ -348,7 +400,7 @@ function renderPlayers() {
     row.querySelector(".remove-player").addEventListener("click", () => {
       state.players = state.players.filter((candidate) => candidate.id !== player.id);
       if (state.startingDealerId === player.id) state.startingDealerId = "";
-      state.maxCards = maxPossibleCards();
+      if (isRiverGame()) state.maxCards = maxPossibleCards();
       save();
       render();
     });
@@ -358,6 +410,10 @@ function renderPlayers() {
 
 function renderGame() {
   if (state.mode !== "game") return;
+  if (isMexicanGame()) {
+    renderMexicanGame();
+    return;
+  }
   const round = currentRound();
   els.roundDirection.textContent = round.direction === "up" ? "Up river" : "Down river";
   els.roundTitle.textContent = round.finished ? "Game complete" : `Round ${state.history.length + 1}: ${round.cards} card${round.cards === 1 ? "" : "s"}`;
@@ -378,18 +434,604 @@ function setActiveTab(tab) {
 function renderGameTabs() {
   const activeTab = ["score", "table", "stats", "rounds"].includes(state.activeTab) ? state.activeTab : "score";
   state.activeTab = activeTab;
+  const labels = isMexicanGame()
+    ? { score: "Cup", table: "Lives", stats: "Ranks", rounds: "History" }
+    : { score: "Score", table: "Table", stats: "Stats", rounds: "Rounds" };
   els.gameTabs.forEach((button) => {
     const isActive = button.dataset.tab === activeTab;
     button.classList.toggle("active", isActive);
     button.setAttribute("aria-selected", String(isActive));
+    button.textContent = labels[button.dataset.tab];
   });
   els.gamePanels.forEach((panel) => {
     panel.classList.toggle("active", panel.dataset.tabPanel === activeTab);
   });
 }
 
+function renderSetupMode() {
+  const river = isRiverGame();
+  const mexican = isMexicanGame();
+  els.riverRulesPanel.classList.toggle("hidden", !river);
+  els.mexicanRulesPanel.classList.toggle("hidden", !mexican);
+  els.playersHint.textContent = mexican
+    ? "Pick a starting roller, or the app will choose one randomly."
+    : "Pick a starting dealer, or the app will choose one randomly.";
+}
+
+function renderMexicanGame() {
+  const lives = currentLives();
+  const winner = mexicanWinner(lives);
+  const activePlayer = currentMexicanPlayer();
+  const activeIndex = state.players.findIndex((player) => player.id === activePlayer?.id);
+  const pending = state.mexican.pendingClaim;
+
+  els.roundDirection.textContent = "Mexican";
+  els.roundTitle.textContent = winner
+    ? `${playerName(winner.player, winner.index)} wins`
+    : activePlayer
+      ? `${playerName(activePlayer, activeIndex)} has the cup`
+      : "Mexican";
+  els.dealerLine.textContent = winner
+    ? `${winner.lives} life${winner.lives === 1 ? "" : "s"} left`
+    : pending
+      ? `${playerName(playerById(pending.rollerId), playerIndexById(pending.rollerId))} passed ${pending.claimed.label}`
+      : "Face down, shake to roll, then pass a claim clockwise.";
+
+  els.trickTotal.textContent = mexicanPillText();
+  els.trickTotal.style.borderColor = "rgba(31, 122, 107, 0.24)";
+
+  renderMexicanCupPanel(lives, winner);
+  renderMexicanLivesPanel(lives);
+  renderMexicanRanksPanel();
+  renderMexicanHistoryPanel(lives);
+}
+
+function renderMexicanCupPanel(lives, winner) {
+  const activePlayer = currentMexicanPlayer();
+  const activeIndex = state.players.findIndex((player) => player.id === activePlayer?.id);
+  const pending = state.mexican.pendingClaim;
+  const roll = state.mexican.currentRoll;
+  const motionButton = motionPermissionState === "granted"
+    ? ""
+    : `<button class="secondary-button" type="button" id="mexican-enable-motion">${motionPermissionState === "denied" ? "Motion blocked" : "Enable motion"}</button>`;
+
+  if (winner) {
+    els.roundEntry.innerHTML = `
+      <div class="mexican-stack">
+        <div class="mexican-status-card win">
+          <strong>${escapeHtml(playerName(winner.player, winner.index))}</strong>
+          <span>Last player standing with ${winner.lives} life${winner.lives === 1 ? "" : "s"} left.</span>
+        </div>
+      </div>
+    `;
+    els.entryMessage.textContent = "Game over.";
+    document.querySelector("#save-round").disabled = true;
+    document.querySelector("#save-round").textContent = "Save round";
+    return;
+  }
+
+  if (pending) {
+    const roller = playerById(pending.rollerId);
+    els.roundEntry.innerHTML = `
+      <div class="mexican-stack">
+        <div class="mexican-status-card">
+          <strong>${escapeHtml(playerName(activePlayer, activeIndex))}</strong>
+          <span>${escapeHtml(playerName(roller, playerIndexById(roller.id)))} says the cup is ${escapeHtml(pending.claimed.label)}.</span>
+        </div>
+        <div class="mexican-actions-grid">
+          <button class="secondary-button" type="button" id="mexican-call-bs">Call BS</button>
+          <button class="primary-button" type="button" id="mexican-take-cup">Take cup</button>
+        </div>
+      </div>
+    `;
+    els.entryMessage.textContent = "Challenge now or accept the cup and roll.";
+    document.querySelector("#save-round").disabled = true;
+    document.querySelector("#save-round").textContent = "Save round";
+    document.querySelector("#mexican-call-bs")?.addEventListener("click", callMexicanBS);
+    document.querySelector("#mexican-take-cup")?.addEventListener("click", acceptMexicanClaim);
+    return;
+  }
+
+  const rollCard = roll
+    ? `
+      <div class="mexican-roll-card ${state.mexican.peeked ? "revealed" : ""}">
+        <div class="dice-row">
+          <span class="die-face">${state.mexican.peeked ? diceFace(roll.dice[0]) : "?"}</span>
+          <span class="die-face">${state.mexican.peeked ? diceFace(roll.dice[1]) : "?"}</span>
+        </div>
+        <strong>${state.mexican.peeked ? escapeHtml(roll.name) : "Peek privately"}</strong>
+        <span>${state.mexican.peeked ? escapeHtml(roll.label) : "Keep the cup low and choose what to announce."}</span>
+      </div>
+    `
+    : `
+      <div class="mexican-roll-card">
+        <div class="dice-row">
+          <span class="die-face">?</span>
+          <span class="die-face">?</span>
+        </div>
+        <strong>Ready to roll</strong>
+        <span id="mexican-motion-status">${escapeHtml(mexicanMotionStatusText())}</span>
+      </div>
+    `;
+
+  const claimOptions = mexicanClaimOptions().map((rank) => `<option value="${escapeHtml(rank.code)}">${escapeHtml(rank.label)}</option>`).join("");
+  els.roundEntry.innerHTML = `
+    <div class="mexican-stack">
+      <div class="mexican-status-card">
+        <strong>${escapeHtml(playerName(activePlayer, activeIndex))}</strong>
+        <span>${lives[activePlayer.id]} life${lives[activePlayer.id] === 1 ? "" : "s"} left. Passes next to ${escapeHtml(playerName(nextAlivePlayer(activePlayer.id), playerIndexById(nextAlivePlayer(activePlayer.id)?.id || "")))}.</span>
+      </div>
+      ${rollCard}
+      <div class="mexican-actions-grid">
+        ${motionButton}
+        <button class="secondary-button" type="button" id="mexican-manual-roll">${roll ? "Re-roll" : "Manual roll"}</button>
+        <button class="secondary-button" type="button" id="mexican-peek" ${roll ? "" : "disabled"}>${state.mexican.peeked ? "Hide" : "Peek"}</button>
+      </div>
+      <label class="field">
+        <span>Announced claim</span>
+        <select id="mexican-claim" ${roll ? "" : "disabled"}>${claimOptions}</select>
+      </label>
+    </div>
+  `;
+  document.querySelector("#mexican-enable-motion")?.addEventListener("click", enableMexicanMotion);
+  document.querySelector("#mexican-manual-roll").addEventListener("click", manualRollMexican);
+  document.querySelector("#mexican-peek").addEventListener("click", toggleMexicanPeek);
+  document.querySelector("#mexican-claim")?.addEventListener("change", (event) => {
+    state.mexican.claimCode = event.target.value;
+    save();
+  });
+
+  document.querySelector("#save-round").textContent = "Pass claim";
+  document.querySelector("#save-round").disabled = !roll;
+  document.querySelector("#save-round").onclick = passMexicanClaim;
+  if (state.mexican.claimCode) {
+    const claimSelect = document.querySelector("#mexican-claim");
+    if (claimSelect) claimSelect.value = state.mexican.claimCode;
+  }
+  els.entryMessage.textContent = roll
+    ? state.mexican.peeked ? "Choose the claim you want to pass." : "Peek privately before you pass the claim."
+    : "Face the phone down and shake on the table, or use manual roll.";
+  updateMexicanMotionStatus();
+}
+
+function renderMexicanLivesPanel(lives) {
+  const ranked = state.players
+    .map((player, index) => ({ player, index, lives: lives[player.id] || 0 }))
+    .sort((a, b) => b.lives - a.lives);
+  els.teamTotals.classList.add("hidden");
+  els.standingsList.innerHTML = ranked.map(({ player, index, lives: remaining }, rank) => `
+    <div class="standing-row ${remaining === 0 ? "out" : ""}">
+      <strong>${rank + 1}</strong>
+      <div>${escapeHtml(playerName(player, index))}<span>${remaining === 0 ? "Out" : "Still in"}</span></div>
+      <b>${remaining}</b>
+    </div>
+  `).join("");
+}
+
+function renderMexicanRanksPanel() {
+  const ranks = mexicanClaimOptions().slice().reverse();
+  els.bidStats.innerHTML = `
+    <div class="stat-card mexican-stat-card">
+      <strong>Order</strong>
+      <span>Regular numbers, then doubles, then Mexican.</span>
+    </div>
+    ${ranks.map((rank) => `
+      <div class="stat-card mexican-rank-card">
+        <strong>${escapeHtml(rank.label)}</strong>
+        <span>${escapeHtml(rank.name)}</span>
+      </div>
+    `).join("")}
+  `;
+}
+
+function renderMexicanHistoryPanel(lives) {
+  const head = `<thead><tr><th>Round</th><th>Claim</th><th>Actual</th><th>Lost</th></tr></thead>`;
+  const rows = state.history.map((entry, index) => `
+    <tr>
+      <td>${index + 1}</td>
+      <td>${escapeHtml(playerName(playerById(entry.rollerId), playerIndexById(entry.rollerId)))} said ${escapeHtml(entry.claimedLabel)}</td>
+      <td>${escapeHtml(entry.actualLabel)}</td>
+      <td>${escapeHtml(playerName(playerById(entry.loserId), playerIndexById(entry.loserId)))} -${entry.loss}</td>
+    </tr>
+  `).join("");
+  els.scoreboard.innerHTML = `${head}<tbody>${rows || `<tr><td colspan="4">No challenges yet.</td></tr>`}</tbody>`;
+}
+
+function createMexicanState() {
+  return {
+    activePlayerId: "",
+    pendingClaim: null,
+    currentRoll: null,
+    claimCode: "32",
+    peeked: false,
+    faceDown: false,
+    flatAngle: false,
+    shaking: false,
+    motionReady: false
+  };
+}
+
+function resetMexicanRound() {
+  state.mexican.pendingClaim = null;
+  state.mexican.currentRoll = null;
+  state.mexican.peeked = false;
+  state.mexican.claimCode = MEXICAN_RANKS[0].code;
+  state.mexican.shaking = false;
+}
+
+function currentLives() {
+  const totals = Object.fromEntries(state.players.map((player) => [player.id, 3]));
+  state.history.forEach((entry) => {
+    totals[entry.loserId] = Math.max(0, (totals[entry.loserId] || 0) - entry.loss);
+  });
+  return totals;
+}
+
+function alivePlayers(lives = currentLives()) {
+  return state.players.filter((player) => (lives[player.id] || 0) > 0);
+}
+
+function firstAlivePlayerId(lives = currentLives()) {
+  return alivePlayers(lives)[0]?.id || "";
+}
+
+function nextAlivePlayer(fromId, lives = currentLives()) {
+  const alive = alivePlayers(lives);
+  if (!alive.length) return null;
+  const startIndex = Math.max(0, state.players.findIndex((player) => player.id === fromId));
+  for (let step = 1; step <= state.players.length; step += 1) {
+    const candidate = state.players[(startIndex + step) % state.players.length];
+    if ((lives[candidate.id] || 0) > 0) return candidate;
+  }
+  return alive[0];
+}
+
+function mexicanWinner(lives = currentLives()) {
+  const alive = state.players
+    .map((player, index) => ({ player, index, lives: lives[player.id] || 0 }))
+    .filter(({ lives: remaining }) => remaining > 0);
+  return alive.length === 1 ? alive[0] : null;
+}
+
+function currentMexicanPlayer() {
+  const lives = currentLives();
+  if ((lives[state.mexican.activePlayerId] || 0) > 0) return playerById(state.mexican.activePlayerId);
+  return playerById(firstAlivePlayerId(lives));
+}
+
+function playerById(playerId) {
+  return state.players.find((player) => player.id === playerId) || null;
+}
+
+function playerIndexById(playerId) {
+  return state.players.findIndex((player) => player.id === playerId);
+}
+
+function mexicanClaimOptions() {
+  return MEXICAN_RANKS;
+}
+
+function mexicanRankByCode(code) {
+  return MEXICAN_RANKS.find((rank) => rank.code === code) || MEXICAN_RANKS[0];
+}
+
+function buildMexicanRankLadder() {
+  const ranks = [];
+  for (let high = 3; high <= 6; high += 1) {
+    for (let low = 1; low < high; low += 1) {
+      ranks.push({
+        code: `${high}${low}`,
+        label: `${high}${low}`,
+        name: `${high}${low} regular`
+      });
+    }
+  }
+  for (let value = 1; value <= 6; value += 1) {
+    ranks.push({
+      code: `${value}${value}`,
+      label: `${value}${value}`,
+      name: `Double ${value}${value}`
+    });
+  }
+  ranks.push({
+    code: "21",
+    label: "21",
+    name: "Mexican"
+  });
+  return ranks;
+}
+
+function evaluateMexicanRoll(firstDie, secondDie) {
+  if ((firstDie === 1 && secondDie === 2) || (firstDie === 2 && secondDie === 1)) {
+    return {
+      dice: [2, 1],
+      code: "21",
+      label: "21",
+      name: "Mexican",
+      rank: mexicanRankByCode("21"),
+      isMexican: true
+    };
+  }
+  if (firstDie === secondDie) {
+    const code = `${firstDie}${secondDie}`;
+    return {
+      dice: [firstDie, secondDie],
+      code,
+      label: code,
+      name: `Double ${code}`,
+      rank: mexicanRankByCode(code),
+      isMexican: false
+    };
+  }
+  const dice = [firstDie, secondDie].sort((a, b) => b - a);
+  const code = `${dice[0]}${dice[1]}`;
+  return {
+    dice,
+    code,
+    label: code,
+    name: `${code} regular`,
+    rank: mexicanRankByCode(code),
+    isMexican: false
+  };
+}
+
+function mexicanRoll() {
+  return evaluateMexicanRoll(randomDie(), randomDie());
+}
+
+function randomDie() {
+  return Math.floor(Math.random() * 6) + 1;
+}
+
+function diceFace(value) {
+  return ["", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"][value] || "?";
+}
+
+function mexicanPillText() {
+  if (motionPermissionState === "granted") {
+    if (state.mexican.shaking) return "Shaking";
+    if (state.mexican.faceDown) return "Face down";
+    return "Motion on";
+  }
+  if (motionPermissionState === "unsupported") return "Manual";
+  if (motionPermissionState === "denied") return "Motion off";
+  return "Enable motion";
+}
+
+function mexicanMotionStatusText() {
+  if (motionPermissionState === "unsupported") return "Motion is not available on this phone. Use manual roll.";
+  if (motionPermissionState === "denied") return "Motion permission is blocked. Use manual roll or re-enable motion in the browser.";
+  if (motionPermissionState !== "granted") return "Enable motion to shake-roll, or use manual roll.";
+  if (state.mexican.shaking) return "Rolling...";
+  if (state.mexican.faceDown) return "Face down detected. Shake on the table to roll.";
+  return "Place the phone face down on the table to arm shake-roll.";
+}
+
+function updateMexicanMotionStatus() {
+  if (!isMexicanGame()) return;
+  const pill = document.querySelector("#trick-total");
+  if (pill) pill.textContent = mexicanPillText();
+  const status = document.querySelector("#mexican-motion-status");
+  if (status) status.textContent = mexicanMotionStatusText();
+}
+
+async function enableMexicanMotion() {
+  const granted = await requestMexicanMotionPermission();
+  if (!granted) {
+    render();
+    return;
+  }
+  ensureMotionListeners();
+  state.mexican.motionReady = true;
+  save();
+  render();
+}
+
+async function requestMexicanMotionPermission() {
+  if (typeof DeviceMotionEvent === "undefined") {
+    motionPermissionState = "unsupported";
+    return false;
+  }
+  try {
+    if (typeof DeviceMotionEvent.requestPermission === "function") {
+      motionPermissionState = await DeviceMotionEvent.requestPermission();
+    } else {
+      motionPermissionState = "granted";
+    }
+  } catch {
+    motionPermissionState = "denied";
+  }
+  return motionPermissionState === "granted";
+}
+
+function ensureMotionListeners() {
+  if (motionListening) return;
+  window.addEventListener("deviceorientation", handleMexicanOrientation);
+  window.addEventListener("devicemotion", handleMexicanMotion);
+  motionListening = true;
+}
+
+function handleMexicanOrientation(event) {
+  if (!isMexicanGame()) return;
+  state.mexican.flatAngle = Math.abs(event.beta || 0) < 25 && Math.abs(event.gamma || 0) < 25;
+}
+
+function handleMexicanMotion(event) {
+  if (!isMexicanGame() || state.mode !== "game" || state.mexican.pendingClaim || mexicanWinner()) return;
+  const gravity = event.accelerationIncludingGravity || {};
+  const z = Number.isFinite(gravity.z) ? gravity.z : 0;
+  state.mexican.faceDown = state.mexican.flatAngle && z < -6;
+
+  const accel = event.acceleration || {};
+  const magnitude = Math.abs(accel.x || 0) + Math.abs(accel.y || 0) + Math.abs(accel.z || 0);
+  if (!state.mexican.faceDown || magnitude < 18) {
+    if (!rollingFromMotion) updateMexicanMotionStatus();
+    return;
+  }
+
+  state.mexican.motionReady = true;
+  state.mexican.shaking = true;
+  rollingFromMotion = true;
+  startRattle();
+  updateMexicanMotionStatus();
+  window.clearTimeout(pendingShakeTimeout);
+  pendingShakeTimeout = window.setTimeout(finishMexicanMotionRoll, 380);
+}
+
+function finishMexicanMotionRoll() {
+  if (!rollingFromMotion || !isMexicanGame()) return;
+  rollingFromMotion = false;
+  state.mexican.shaking = false;
+  stopRattle();
+  state.mexican.currentRoll = mexicanRoll();
+  state.mexican.peeked = false;
+  state.mexican.claimCode = state.mexican.currentRoll.code;
+  save();
+  render();
+}
+
+function manualRollMexican() {
+  stopRattle();
+  state.mexican.shaking = false;
+  state.mexican.motionReady = true;
+  state.mexican.currentRoll = mexicanRoll();
+  state.mexican.peeked = false;
+  state.mexican.claimCode = state.mexican.currentRoll.code;
+  save();
+  render();
+}
+
+function toggleMexicanPeek() {
+  if (!state.mexican.currentRoll) return;
+  state.mexican.peeked = !state.mexican.peeked;
+  save();
+  render();
+}
+
+function passMexicanClaim() {
+  const activePlayer = currentMexicanPlayer();
+  const nextPlayer = nextAlivePlayer(activePlayer?.id || "");
+  if (!activePlayer || !nextPlayer || !state.mexican.currentRoll) return;
+  const claimSelect = document.querySelector("#mexican-claim");
+  const claimCode = claimSelect?.value || state.mexican.claimCode || state.mexican.currentRoll.code;
+  const claimed = mexicanRankByCode(claimCode);
+  state.mexican.pendingClaim = {
+    rollerId: activePlayer.id,
+    targetId: nextPlayer.id,
+    claimed,
+    actual: state.mexican.currentRoll
+  };
+  state.mexican.activePlayerId = nextPlayer.id;
+  state.mexican.currentRoll = null;
+  state.mexican.peeked = false;
+  state.mexican.claimCode = claimCode;
+  save();
+  render();
+}
+
+function acceptMexicanClaim() {
+  if (!state.mexican.pendingClaim) return;
+  state.mexican.pendingClaim = null;
+  state.mexican.currentRoll = null;
+  state.mexican.peeked = false;
+  save();
+  render();
+}
+
+function callMexicanBS() {
+  const pending = state.mexican.pendingClaim;
+  if (!pending) return;
+
+  const callerId = state.mexican.activePlayerId;
+  const claimIndex = MEXICAN_RANKS.findIndex((rank) => rank.code === pending.claimed.code);
+  const actualIndex = MEXICAN_RANKS.findIndex((rank) => rank.code === pending.actual.code);
+  const claimWasTrue = actualIndex >= claimIndex;
+  const loserId = claimWasTrue ? callerId : pending.rollerId;
+  const loss = pending.actual.isMexican ? 2 : 1;
+
+  state.history.push({
+    rollerId: pending.rollerId,
+    challengerId: callerId,
+    loserId,
+    loss,
+    claimedLabel: pending.claimed.label,
+    actualLabel: pending.actual.label,
+    nextPlayerId: loserId
+  });
+
+  const lives = currentLives();
+  const nextStarter = (lives[loserId] || 0) > 0 ? loserId : nextAlivePlayer(loserId, lives)?.id || "";
+  state.mexican.activePlayerId = nextStarter;
+  resetMexicanRound();
+  save();
+  render();
+
+  const loser = playerById(loserId);
+  const loserIndex = playerIndexById(loserId);
+  const banner = `${playerName(loser, loserIndex)} loses ${loss} life${loss === 1 ? "" : "s"}.`;
+  showBanner(banner, claimWasTrue ? "miss" : "board");
+  if (mexicanWinner(currentLives())) {
+    const winner = mexicanWinner(currentLives());
+    showCelebration({
+      type: "win",
+      title: `${playerName(winner.player, winner.index)} wins`,
+      detail: `${winner.lives} life${winner.lives === 1 ? "" : "s"} left`,
+      confetti: true
+    });
+  } else {
+    showCelebration({
+      type: claimWasTrue ? "miss" : "board",
+      title: claimWasTrue ? "BS missed" : "BS landed",
+      detail: `${pending.claimed.label} vs ${pending.actual.label}`,
+      confetti: !claimWasTrue
+    });
+  }
+}
+
+function startRattle() {
+  const Context = window.AudioContext || window.webkitAudioContext;
+  if (!Context || rattleNodes) return;
+  audioContext = audioContext || new Context();
+  if (audioContext.state === "suspended") {
+    audioContext.resume().catch(() => {});
+  }
+  const buffer = audioContext.createBuffer(1, Math.floor(audioContext.sampleRate * 0.15), audioContext.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let index = 0; index < data.length; index += 1) {
+    data[index] = (Math.random() * 2 - 1) * 0.32;
+  }
+  const source = audioContext.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+  const filter = audioContext.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = 940;
+  const gain = audioContext.createGain();
+  gain.gain.value = 0.07;
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioContext.destination);
+  source.start();
+  rattleNodes = { source, filter, gain };
+}
+
+function stopRattle() {
+  if (!rattleNodes) return;
+  try {
+    rattleNodes.source.stop();
+  } catch {
+    // no-op
+  }
+  rattleNodes.source.disconnect();
+  rattleNodes.filter.disconnect();
+  rattleNodes.gain.disconnect();
+  rattleNodes = null;
+}
+
 function renderRoundEntry(round) {
   els.roundEntry.innerHTML = "";
+  document.querySelector("#save-round").textContent = "Save round";
+  document.querySelector("#save-round").onclick = null;
   if (round.finished) {
     els.entryMessage.textContent = "Final scores are in.";
     document.querySelector("#save-round").disabled = true;
@@ -738,6 +1380,11 @@ function syncPlayersFromDom() {
 }
 
 function syncSettingsFromDom({ clampRounds }) {
+  if (!isRiverGame()) {
+    state.playMode = "singles";
+    save();
+    return;
+  }
   state.playMode = els.playMode.value;
   state.deckSize = clamp(numberValue(els.deckSize, state.deckSize), 20, 108);
   state.maxCards = numberValue(els.maxCards, state.maxCards);
@@ -758,6 +1405,10 @@ function syncSettingsFromDom({ clampRounds }) {
 }
 
 function commitNumericSettings() {
+  if (!isRiverGame()) {
+    render();
+    return;
+  }
   syncSettingsFromDom({ clampRounds: true });
   render();
 }
@@ -794,12 +1445,17 @@ function load() {
     state.activeTab = ["score", "table", "stats", "rounds"].includes(state.activeTab) ? state.activeTab : "score";
     state.setupTab = ["rules", "players"].includes(state.setupTab) ? state.setupTab : "rules";
     if (state.mode === "setup" && !state.selectedGame && !state.history.length) state.mode = "home";
+    state.mexican = { ...createMexicanState(), ...(state.mexican || {}) };
     state.boardPoints = numberValue({ value: state.boardPoints }, 5);
     state.boardMissPoints = numberValue({ value: state.boardMissPoints }, 5);
     state.hitPoints = numberValue({ value: state.hitPoints }, 3);
     state.underPoints = numberValue({ value: state.underPoints }, 3);
     if (!state.players.some((player) => player.id === state.startingDealerId)) {
       state.startingDealerId = "";
+    }
+    if (isMexicanGame()) {
+      state.playMode = "singles";
+      if (!state.mexican.activePlayerId) state.mexican.activePlayerId = firstAlivePlayerId();
     }
     if (usesOriginalSampleNames() && state.history.length === 0) {
       state.players = createDefaultPlayers();

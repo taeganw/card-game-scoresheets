@@ -792,6 +792,88 @@ button:focus-visible {
   margin-top: 0;
 }
 
+.mexican-rules {
+  display: grid;
+  gap: 12px;
+}
+
+.mexican-rules-hint {
+  padding: 12px;
+  border: 1px dashed rgba(7, 89, 108, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 250, 242, 0.84);
+}
+
+.mexican-stack {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+}
+
+.mexican-status-card,
+.mexican-roll-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf8;
+}
+
+.mexican-status-card {
+  background:
+    linear-gradient(90deg, rgba(31, 157, 182, 0.12), transparent 68%),
+    #fffdf8;
+}
+
+.mexican-status-card.win,
+.mexican-roll-card.revealed {
+  border-color: rgba(31, 122, 107, 0.34);
+}
+
+.mexican-status-card strong,
+.mexican-roll-card strong {
+  font-size: 1rem;
+}
+
+.mexican-status-card span,
+.mexican-roll-card span {
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.mexican-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mexican-actions-grid .primary-button,
+.mexican-actions-grid .secondary-button {
+  width: 100%;
+  margin-top: 0;
+}
+
+.dice-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.die-face {
+  display: grid;
+  place-items: center;
+  min-height: 84px;
+  border: 1px solid rgba(7, 89, 108, 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(64, 120, 188, 0.12), rgba(255, 255, 255, 0.96)),
+    #fff;
+  color: var(--ink);
+  font-size: 2.55rem;
+  line-height: 1;
+}
+
 .team-totals {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 12px;
@@ -842,6 +924,10 @@ button:focus-visible {
 .standing-row b {
   color: var(--accent-dark);
   font-size: 1.45rem;
+}
+
+.standing-row.out {
+  opacity: 0.58;
 }
 
 .team-total {
@@ -1473,6 +1559,15 @@ button:focus-visible {
 
   .entry-footer .primary-button {
     width: 100%;
+  }
+
+  .mexican-actions-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .die-face {
+    min-height: 74px;
+    font-size: 2.15rem;
   }
 
   .celebration-card {
