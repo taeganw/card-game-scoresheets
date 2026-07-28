@@ -952,7 +952,7 @@ function callMexicanBS() {
   const actualIndex = MEXICAN_RANKS.findIndex((rank) => rank.code === pending.actual.code);
   const claimWasTrue = actualIndex >= claimIndex;
   const loserId = claimWasTrue ? callerId : pending.rollerId;
-  const loss = pending.actual.isMexican ? 2 : 1;
+  const loss = pending.claimed.code === "21" ? 2 : 1;
   const livesAfterLoss = currentLives();
   livesAfterLoss[loserId] = Math.max(0, (livesAfterLoss[loserId] || 0) - loss);
   const nextPlayerBaseId = claimWasTrue ? callerId : pending.rollerId;
