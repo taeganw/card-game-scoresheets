@@ -1002,36 +1002,94 @@ function startRattle() {
   if (audioContext.state === "suspended") {
     audioContext.resume().catch(() => {});
   }
-  const buffer = audioContext.createBuffer(1, Math.floor(audioContext.sampleRate * 0.15), audioContext.sampleRate);
+  const buffer = audioContext.createBuffer(1, Math.floor(audioContext.sampleRate * 0.22), audioContext.sampleRate);
   const data = buffer.getChannelData(0);
   for (let index = 0; index < data.length; index += 1) {
-    data[index] = (Math.random() * 2 - 1) * 0.32;
+    const decay = 1 - index / data.length;
+    data[index] = (Math.random() * 2 - 1) * 0.18 * decay;
   }
+
   const source = audioContext.createBufferSource();
   source.buffer = buffer;
   source.loop = true;
-  const filter = audioContext.createBiquadFilter();
-  filter.type = "bandpass";
-  filter.frequency.value = 940;
-  const gain = audioContext.createGain();
-  gain.gain.value = 0.07;
-  source.connect(filter);
-  filter.connect(gain);
-  gain.connect(audioContext.destination);
+
+  const rumbleFilter = audioContext.createBiquadFilter();
+  rumbleFilter.type = "bandpass";
+  rumbleFilter.frequency.value = 520;
+  rumbleFilter.Q.value = 1.2;
+
+  const cupResonance = audioContext.createBiquadFilter();
+  cupResonance.type = "peaking";
+  cupResonance.frequency.value = 1240;
+  cupResonance.Q.value = 2.6;
+  cupResonance.gain.value = 7;
+
+  const masterGain = audioContext.createGain();
+  masterGain.gain.value = 0.02;
+
+  const wobble = audioContext.createOscillator();
+  wobble.type = "triangle";
+  wobble.frequency.value = 14;
+
+  const wobbleDepth = audioContext.createGain();
+  wobbleDepth.gain.value = 160;
+
+  source.connect(rumbleFilter);
+  rumbleFilter.connect(cupResonance);
+  cupResonance.connect(masterGain);
+  masterGain.connect(audioContext.destination);
+  wobble.connect(wobbleDepth);
+  wobbleDepth.connect(rumbleFilter.frequency);
+
   source.start();
-  rattleNodes = { source, filter, gain };
+  wobble.start();
+
+  const impactTimer = window.setInterval(() => {
+    if (!audioContext || !rattleNodes) return;
+    const now = audioContext.currentTime;
+    const impactSource = audioContext.createBufferSource();
+    impactSource.buffer = buffer;
+
+    const impactFilter = audioContext.createBiquadFilter();
+    impactFilter.type = "bandpass";
+    impactFilter.frequency.value = 1200 + Math.random() * 1400;
+    impactFilter.Q.value = 3.2;
+
+    const impactGain = audioContext.createGain();
+    impactGain.gain.setValueAtTime(0.0001, now);
+    impactGain.gain.linearRampToValueAtTime(0.09 + Math.random() * 0.03, now + 0.01);
+    impactGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08 + Math.random() * 0.05);
+
+    impactSource.playbackRate.value = 1.2 + Math.random() * 0.9;
+    impactSource.connect(impactFilter);
+    impactFilter.connect(impactGain);
+    impactGain.connect(masterGain);
+    impactSource.start(now);
+    impactSource.stop(now + 0.12);
+  }, 55 + Math.floor(Math.random() * 25));
+
+  rattleNodes = { source, rumbleFilter, cupResonance, masterGain, wobble, wobbleDepth, impactTimer };
 }
 
 function stopRattle() {
   if (!rattleNodes) return;
+  window.clearInterval(rattleNodes.impactTimer);
   try {
     rattleNodes.source.stop();
   } catch {
     // no-op
   }
+  try {
+    rattleNodes.wobble.stop();
+  } catch {
+    // no-op
+  }
   rattleNodes.source.disconnect();
-  rattleNodes.filter.disconnect();
-  rattleNodes.gain.disconnect();
+  rattleNodes.rumbleFilter.disconnect();
+  rattleNodes.cupResonance.disconnect();
+  rattleNodes.masterGain.disconnect();
+  rattleNodes.wobble.disconnect();
+  rattleNodes.wobbleDepth.disconnect();
   rattleNodes = null;
 }
 
